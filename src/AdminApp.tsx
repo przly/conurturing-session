@@ -8,6 +8,7 @@ import { Card, CardDescription, CardFooter, CardHeader, CardPanel, CardTitle } f
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Radio, RadioGroup } from '@/components/ui/radio-group'
+import { ResearcherScript } from '@/components/admin/ResearcherScript'
 import { ROUND_CONFIG, type Order } from '@/config'
 import { downloadExport, fetchExport, type SessionRow } from '@/data/export'
 import { openAdminChannel, type Command, type LiveEvent, type LiveStatus } from '@/data/live'
@@ -175,7 +176,7 @@ function Dashboard({ email }: { email: string }) {
         onSelect={setSelected}
         onRefresh={load}
       />
-      {current && (
+      {current ? (
         <SessionDetail
           key={current.id}
           session={current}
@@ -184,6 +185,8 @@ function Dashboard({ email }: { email: string }) {
             await load()
           }}
         />
+      ) : (
+        <ResearcherScript live={null} />
       )}
     </>
   )
@@ -438,6 +441,7 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>
@@ -546,6 +550,8 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
         </Button>
       </CardFooter>
     </Card>
+    <ResearcherScript live={connected ? status : null} />
+    </>
   )
 }
 
