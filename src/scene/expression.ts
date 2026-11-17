@@ -39,10 +39,15 @@ export const LOOK = {
   pulseAmplitude: 0.12,
   /** Lean toward the camera while listening, in scene units of displacement at the top. */
   leanAmount: 0.22,
+  /** Extra glow while speaking, scaled by loudness (same for both). */
+  emissiveVoice: 0.3,
   /** Easing rates (per second; higher = faster). */
   opennessRate: 1.0,
   pulseRate: 3,
-  leanRate: 2.5,
+  leanRate: 4,
+  /** Voice follows loudness quickly when it rises, and settles a bit slower. */
+  voiceAttackRate: 14,
+  voiceReleaseRate: 4,
 }
 
 export interface Expression {
@@ -52,6 +57,8 @@ export interface Expression {
   pulse: number
   /** 0–1, eased listening. */
   lean: number
+  /** 0–1, eased voice loudness (0 when quiet). */
+  voice: number
   /** −1…1 idle breathing wave, already scaled by openness. */
   idle: number
   /** −1…1 pulse motion wave, already scaled by `pulse`. */
@@ -67,7 +74,7 @@ export function healthToOpenness(health: number) {
 }
 
 export class ExpressionDriver {
-  readonly value: Expression = { openness: 0, pulse: 0, lean: 0, idle: 0, pulseWave: 0, time: 0 }
+  readonly value: Expression = { openness: 0, pulse: 0, lean: 0, voice: 0, idle: 0, pulseWave: 0, time: 0 }
   private first = true
 
   update(state: TwinState, dt: number) {
@@ -81,6 +88,7 @@ export class ExpressionDriver {
     v.openness = ease(v.openness, target, LOOK.opennessRate)
     v.pulse = ease(v.pulse, state.pulse, LOOK.pulseRate)
     v.lean = ease(v.lean, state.listening ? 1 : 0, LOOK.leanRate)
+    v.voice = ease(v.voice, state.voice, state.voice > v.voice ? LOOK.voiceAttackRate : LOOK.voiceReleaseRate)
     v.time += dt
     const idleAmount = LOOK.idleMinAmount + (1 - LOOK.idleMinAmount) * v.openness
     v.idle = Math.sin(v.time * Math.PI * 2 * LOOK.idleHz) * idleAmount
@@ -145,7 +153,7 @@ export function applyGlow(
   desaturate(baseFoliage, saturation, body.color).multiplyScalar(dim)
   desaturate(baseGlow, saturation, material.emissive)
   material.emissiveIntensity =
-    LOOK.emissiveMin + (LOOK.emissiveMax - LOOK.emissiveMin) * o + LOOK.emissivePulse * e.pulse + LOOK.emissiveListening * e.lean
+    LOOK.emissiveMin + (LOOK.emissiveMax - LOOK.emissiveMin) * o + LOOK.emissivePulse * e.pulse + LOOK.emissiveListening * e.lean + LOOK.emissiveVoice * e.voice
 
   desaturate(baseGlow, saturation, pool.color)
   pool.opacity = LOOK.poolMin + (LOOK.poolMax - LOOK.poolMin) * o + LOOK.poolPulse * e.pulse

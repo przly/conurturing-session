@@ -136,6 +136,7 @@ Both forms read the same state (`health`, `pulse`, `listening`) through **one** 
 - petals open as health rises and close into a bud as it fades, alongside the leaves
 - same pulse frequency and peak displacement (orb bob ↔ leaf-tip sway)
 - same lean displacement toward the camera while listening
+- same reaction to voice **loudness** (`voice`, 0–1, scaled from each participant's calibration, normal speech ≈ 0.6): the plant's leaves swing toward perpendicular to the stem and the orb swells, and both glow brighter. Loudness only affects the visuals, not health: talking adds energy at the same rate however loud it is
 
 Neither form has its own light, because a light inside the plant's bud would light its own leaves while the orb's couldn't. Only shape and how the shape moves differ (`src/scene/forms.ts`). Tune both together in `?compare=1`.
 

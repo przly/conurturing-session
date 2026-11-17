@@ -11,16 +11,18 @@ import type { TwinState } from '@/twin/RoundRunner'
  * Use it to check they look equally expressive. Hold Space = listening.
  */
 export function CompareView() {
-  const [state] = useState<TwinState>(() => ({ health: ROUND_CONFIG.startHealth, pulse: 0, listening: false }))
+  const [state] = useState<TwinState>(() => ({ health: ROUND_CONFIG.startHealth, pulse: 0, listening: false, voice: 0 }))
   const [health, setHealth] = useState(state.health)
   const [listening, setListening] = useState(false)
+  const [voice, setVoice] = useState(0)
   const [pulse, setPulse] = useState(0)
   const pulseStart = useRef<number | null>(null)
 
   useEffect(() => {
     state.health = health
-    state.listening = listening
-  }, [state, health, listening])
+    state.listening = listening || voice > 0
+    state.voice = voice
+  }, [state, health, listening, voice])
 
   // Same pulse curve as a round, at 10× speed so it's quick to judge.
   useEffect(() => {
@@ -39,6 +41,7 @@ export function CompareView() {
       if (e.code !== 'Space') return
       e.preventDefault()
       setListening(down)
+      setVoice(down ? 0.8 : 0)
     }
     const down = set(true)
     const up = set(false)
@@ -82,9 +85,20 @@ export function CompareView() {
         <Button size="sm" onClick={() => (pulseStart.current = performance.now())}>
           partner pulse <span className="tabular-nums opacity-70">{pulse.toFixed(2)}</span>
         </Button>
+        <label className="flex min-w-56 items-center gap-3 text-sm">
+          <span className="w-24 tabular-nums">voice {voice.toFixed(2)}</span>
+          <Slider
+            className="flex-1"
+            min={0}
+            max={1}
+            step={0.01}
+            value={voice}
+            onValueChange={(v) => setVoice(Array.isArray(v) ? v[0] : (v as number))}
+          />
+        </label>
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={listening} onCheckedChange={setListening} />
-          listening (or hold Space)
+          listening (hold Space = loud voice)
         </label>
       </div>
     </div>

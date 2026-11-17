@@ -59,6 +59,7 @@ export function DebugOverlay({ session, scene }: DebugOverlayProps) {
       <Bar label="health" value={state.health} />
       <Bar label="pulse" value={state.pulse} />
       <Row label="listening">{state.listening ? 'yes' : 'no'}</Row>
+      <Bar label="voice" value={state.voice} />
       {e && <Row label="openness">{pct(e.openness)}</Row>}
       <div className="mt-2">mic {mic.level.toFixed(1)} dB</div>
       <div className="relative mt-1 h-2 rounded bg-white/10">

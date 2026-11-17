@@ -4,7 +4,9 @@ import { SessionLogger, type AnswerRow } from '@/data/logger'
 import { MicDetector, type Calibration } from './MicDetector'
 import { RoundRunner, type TwinState } from './RoundRunner'
 
-const IDLE_STATE: TwinState = { health: ROUND_CONFIG.startHealth, pulse: 0, listening: false }
+const IDLE_STATE: TwinState = { health: ROUND_CONFIG.startHealth, pulse: 0, listening: false, voice: 0 }
+/** Loudness used for the debug Space-to-talk simulation. */
+const SIMULATED_VOICE = 0.7
 
 /**
  * One participant session: owns the mic, the logger, the live link to
@@ -48,9 +50,13 @@ export class StudySession {
     return this.round ? this.forms[this.round - 1] : null
   }
 
-  /** State the scene renders (idle defaults outside a round). */
+  /** State the scene renders (idle defaults outside a round). Read every frame. */
   get state(): TwinState {
-    return this.runner?.state ?? IDLE_STATE
+    const runner = this.runner
+    if (!runner) return IDLE_STATE
+    // Live loudness is copied in per frame; it only affects visuals.
+    if (!runner.ended) runner.state.voice = this.simulatedTalk ? SIMULATED_VOICE : this.mic.voice
+    return runner.state
   }
 
   /** Start pressed: register the session and learn the order. */

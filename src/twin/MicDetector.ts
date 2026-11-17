@@ -41,6 +41,11 @@ const MIN_DB = -100
 export class MicDetector {
   /** Smoothed level of the latest frame, dB (−100…0). */
   level = MIN_DB
+  /**
+   * 0–1 loudness while a talk is in progress (0 when quiet): from the
+   * off-threshold (0) to `voiceHeadroomDb` above their calibrated speech level (1).
+   */
+  voice = 0
   /** Talk in progress for at least `minTalkSec`. */
   listening = false
   calibration: Calibration | null = null
@@ -104,6 +109,7 @@ export class MicDetector {
     clearInterval(this.timer)
     this.timer = 0
     this.endTalk()
+    this.voice = 0
     this.stream?.getTracks().forEach((track) => track.stop())
     this.stream = null
     this.context?.close()
@@ -154,7 +160,13 @@ export class MicDetector {
     const db = rms > 0 ? Math.max(MIN_DB, 20 * Math.log10(rms)) : MIN_DB
     const k = 1 - Math.exp(-FRAME_MS / 1000 / SMOOTH_SEC)
     this.level += (db - this.level) * k
-    if (this.calibration) this.detect(performance.now())
+    if (this.calibration) {
+      this.detect(performance.now())
+      const { offDb, speechDb } = this.calibration
+      const top = Math.max(speechDb, offDb + MIC_CONFIG.minGapDb) + MIC_CONFIG.voiceHeadroomDb
+      const v = (this.level - offDb) / (top - offDb)
+      this.voice = this.active ? Math.min(1, Math.max(0, v)) : 0
+    }
   }
 
   private detect(now: number) {

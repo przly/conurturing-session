@@ -45,6 +45,8 @@ export const MIC_CONFIG = {
   offRatio: 0.3,
   /** Calibration counts as unreliable if speech is less than this many dB above silence. */
   minGapDb: 6,
+  /** Voice loudness 1 = this many dB above their calibrated speech level (normal speech ≈ 0.6). */
+  voiceHeadroomDb: 8,
 }
 
 export type Form = 'plant' | 'orb'

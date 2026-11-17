@@ -4,10 +4,12 @@ import { LOOK, lerp, type Expression } from './expression'
 /**
  * The two forms. Both:
  *  - use the shared glowing material (driven in `applyGlow`); on the plant
- *    only the flower glows, the stem and leaves use a non-glowing material
+ *    only the petals glow, the stem and leaves use a non-glowing material
  *  - map `openness` to their pose with the same easing (already in `Expression`)
  *  - breathe with `idle`, move with `pulseWave` (same peak displacement),
- *    and lean toward the camera with `lean` (same displacement at the top).
+ *    and lean toward the camera with `lean` (same displacement at the top)
+ *  - react to voice loudness (`voice`): leaves swing toward perpendicular to
+ *    the stem, the orb swells; both by a similar visible amount
  *
  * Origin is the top of the shared base, at y = 0.
  */
@@ -30,6 +32,8 @@ const ORB = {
   minScale: 0.8,
   idleY: 0.03,
   idleScale: 0.015,
+  /** Extra size at full voice loudness. */
+  voiceScale: 0.14,
 }
 
 export function createOrb(material: THREE.Material): TwinForm {
@@ -46,7 +50,7 @@ export function createOrb(material: THREE.Material): TwinForm {
       const o = e.openness
       const y = lerp(ORB.lowY, ORB.highY, o) + e.idle * ORB.idleY + e.pulseWave * LOOK.pulseAmplitude
       body.position.set(0, y, e.lean * LOOK.leanAmount)
-      body.scale.setScalar(lerp(ORB.minScale, 1, o) * (1 + e.idle * ORB.idleScale))
+      body.scale.setScalar(lerp(ORB.minScale, 1, o) * (1 + e.idle * ORB.idleScale + e.voice * ORB.voiceScale))
     },
     dispose: () => geometry.dispose(),
   }
@@ -71,11 +75,13 @@ const PLANT = {
     [2, 0.26, 0.38],
   ] as const,
   /** Leaf elevation: raised when healthy, hanging when withered (degrees). */
-  leafOpenDeg: 28,
+  leafOpenDeg: 45,
   leafDroopDeg: -58,
   /** Leaf width when withered (closed) vs healthy. */
   leafClosedWidth: 0.5,
   leafIdleDeg: 3,
+  /** How far toward perpendicular the leaves go at full voice loudness (1 = fully perpendicular). */
+  leafVoiceAmount: 1,
   /** Flower head: petal count and length; the head tips toward the camera so the face shows. */
   petals: 6,
   petalLength: 0.3,
@@ -212,8 +218,9 @@ export function createPlant(material: THREE.Material, foliage: THREE.Material): 
         // Same peak tip displacement as the orb's pulse bob.
         const pulseAngle = Math.asin(Math.min(1, LOOK.pulseAmplitude / leaf.length))
         const wave = Math.sin(e.time * Math.PI * 2 * LOOK.pulseHz + leaf.phase) * e.pulse
-        leaf.elevation.rotation.z =
-          lerp(PLANT.leafDroopDeg, PLANT.leafOpenDeg, o) * DEG + e.idle * PLANT.leafIdleDeg * DEG + wave * pulseAngle
+        const rest = lerp(PLANT.leafDroopDeg, PLANT.leafOpenDeg, o) * DEG + e.idle * PLANT.leafIdleDeg * DEG + wave * pulseAngle
+        // The louder the voice, the closer the leaf gets to perpendicular with the stem (0° elevation).
+        leaf.elevation.rotation.z = lerp(rest, 0, e.voice * PLANT.leafVoiceAmount)
         leaf.blade.scale.z = leaf.length * lerp(PLANT.leafClosedWidth, 1, o)
       }
 

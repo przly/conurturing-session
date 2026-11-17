@@ -11,6 +11,11 @@ export interface TwinState {
   pulse: number
   /** Mic currently hears speech. */
   listening: boolean
+  /**
+   * 0–1: how loud the person is speaking right now, relative to their
+   * calibration (normal speech ≈ 0.6). Drives visuals only, not health.
+   */
+  voice: number
 }
 
 export type RoundEventType =
@@ -81,7 +86,7 @@ export class RoundRunner {
     this.speed = options.speed
     this.onEvent = options.onEvent
     this.onEnd = options.onEnd
-    this.state = { health: options.config.startHealth, pulse: 0, listening: false }
+    this.state = { health: options.config.startHealth, pulse: 0, listening: false, voice: 0 }
   }
 
   start() {
@@ -237,6 +242,7 @@ export class RoundRunner {
     this.ended = true
     this.stop()
     this.state.listening = false
+    this.state.voice = 0
     this.emit('round_end', { meta: { source } })
     this.onEnd()
   }
