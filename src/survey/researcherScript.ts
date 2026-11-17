@@ -13,7 +13,11 @@
  *  "plant" or "orb", before the debrief. Otherwise the framing
  *  itself favours one form.
  */
+import { formatClock, ROUND_CONFIG, ROUND_MINUTES } from '@/config'
 import type { Phase } from '@/data/live'
+
+const pulseTimes = ROUND_CONFIG.pulsesAtSec.map(formatClock)
+const pulseList = `${pulseTimes.slice(0, -1).join(', ')} and ${pulseTimes[pulseTimes.length - 1]}`
 
 export interface ScriptStep {
   id: string
@@ -32,7 +36,7 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
     title: 'Welcome and consent',
     when: 'Before the participant starts, with the start screen open',
     say: [
-      'Thank you for taking part. This session takes about 30 minutes.',
+      'Thank you for taking part. This session takes about 20 minutes.',
       'We are a group of design students working on ways to help students who live abroad feel more at home.',
       'Taking part is voluntary. You can stop at any moment without giving a reason, and that is completely fine.',
       'The page uses the microphone only to notice when you are speaking. No sound is recorded, stored or sent anywhere. We only save when you spoke and for how long, plus your answers to a few questions. Everything is stored under a code, not your name.',
@@ -81,7 +85,7 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
     title: 'Before round 1',
     when: 'On the "Ready when you are" screen',
     say: [
-      'In a moment an object will appear on the screen, and it will stay for about 10 minutes.',
+      `In a moment an object will appear on the screen, and it will stay for about ${ROUND_MINUTES} minutes.`,
       'Imagine this is the object in your room, and its twin is with the person you thought of. Treat it however you like: you can talk to it as much or as little as you want. There is no right or wrong way.',
       'I will stay in the room and sit quietly to the side. Just act as if I am not here. The screen will tell you when the time is up.',
       'Press Begin when you are ready.',
@@ -95,12 +99,12 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
   {
     id: 'during-round',
     title: 'During a round',
-    when: 'While the object is on screen (10 minutes)',
+    when: `While the object is on screen (${ROUND_MINUTES} minutes)`,
     say: [],
     notes: [
       'Stay quiet, keep still and avoid reacting to what happens on screen (no nodding, smiling or sighing).',
       'Take observation notes on paper, silently (no typing: the keyboard is audible).',
-      'Watch the live view: health should rise when they talk. Pulses come at 2:00, 5:00 and 8:00, and the forced fade at 6:00.',
+      `Watch the live view: health should rise when they talk. Pulses come at ${pulseList}, and the forced fade at ${formatClock(ROUND_CONFIG.witherAtSec)}.`,
       'Only use the overrides if something clearly went wrong. They are logged as manual.',
       'If the participant asks something, answer briefly, quietly and neutrally: "Do whatever feels natural." Then go quiet again.',
       'When the screen fades out and says "Round complete", go to the next step.',
@@ -123,7 +127,7 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
     title: 'Before round 2',
     when: 'On the "Part 2 of 2" screen',
     say: [
-      'Next a different object will appear, again for about 10 minutes.',
+      `Next a different object will appear, again for about ${ROUND_MINUTES} minutes.`,
       'Same as before: it is in your room, and its twin is with the same person. You can talk to it as much or as little as you want.',
       'Press Begin when you are ready.',
     ],

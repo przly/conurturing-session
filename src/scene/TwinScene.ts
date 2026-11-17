@@ -6,15 +6,15 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { Form } from '@/config'
 import type { TwinState } from '@/twin/RoundRunner'
-import { applyGlow, createSharedMaterial, ExpressionDriver, type Expression } from './expression'
+import { applyGlow, createBodyMaterial, createSharedMaterial, ExpressionDriver, type Expression } from './expression'
 import { createOrb, createPlant, type TwinForm } from './forms'
 
 /** Dim, neutral room so the glow reads clearly and nothing hints at nature. */
 const BACKGROUND = '#0d0e11'
-const ENVIRONMENT_INTENSITY = 0.14
+const ENVIRONMENT_INTENSITY = 0.35
 const EXPOSURE = 1
 /** Bloom applies to both forms identically (only bright pixels bloom). */
-const BLOOM = { strength: 0.45, radius: 0.55, threshold: 0.66 }
+const BLOOM = { strength: 0.65, radius: 0.5, threshold: 0.3 }
 
 function createPoolTexture() {
   const size = 256
@@ -46,6 +46,8 @@ export class TwinScene {
   private scene = new THREE.Scene()
   private camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100)
   private material = createSharedMaterial()
+  /** Non-glowing parts (plant stem and leaves). */
+  private bodyMaterial = createBodyMaterial()
   private form: TwinForm
   private poolMaterial!: THREE.MeshBasicMaterial
   private driver = new ExpressionDriver()
@@ -63,7 +65,7 @@ export class TwinScene {
     // Throws if WebGL is unavailable; the React wrapper shows a text fallback.
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMapping = THREE.NeutralToneMapping
     this.renderer.toneMappingExposure = EXPOSURE
     this.renderer.domElement.setAttribute('aria-hidden', 'true')
     this.renderer.domElement.style.display = 'block'
@@ -78,14 +80,14 @@ export class TwinScene {
     pmrem.dispose()
     this.scene.environment = envMap
     this.scene.environmentIntensity = ENVIRONMENT_INTENSITY
-    this.disposables.push(envMap, this.material)
+    this.disposables.push(envMap, this.material, this.bodyMaterial)
 
     this.camera.position.set(0, 1.15, 4.3)
     this.camera.lookAt(0, 0.8, 0)
 
     this.addStage()
 
-    this.form = form === 'plant' ? createPlant(this.material) : createOrb(this.material)
+    this.form = form === 'plant' ? createPlant(this.material, this.bodyMaterial) : createOrb(this.material)
     this.scene.add(this.form.root)
     this.disposables.push(this.form)
 
@@ -151,7 +153,7 @@ export class TwinScene {
     this.lastTime = now
     const e = this.driver.update(this.getState(), dt)
     this.expression = e
-    applyGlow(this.material, this.poolMaterial, e)
+    applyGlow(this.material, this.bodyMaterial, this.poolMaterial, e)
     this.form.update(e)
     this.composer.render()
   }

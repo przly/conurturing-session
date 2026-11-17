@@ -177,7 +177,7 @@ export class StudySession {
     })
   }
 
-  /** Keep the screen awake during a 10-minute round with no input. */
+  /** Keep the screen awake during a round with no input. */
   private async requestWakeLock() {
     try {
       this.wakeLock = (await navigator.wakeLock?.request('screen')) ?? null

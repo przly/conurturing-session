@@ -3,7 +3,7 @@
 Web prototype for the *twin plants* concept (Master Digital Design, AUAS, Emerging Interactions).
 It tests one question: **are people more attached to a plant form than to an abstract orb when the behaviour is identical?**
 
-Each participant does two 10-minute rounds, one with the **plant** and one with the **orb** (order counterbalanced), and answers a short questionnaire after each round, then a few final questions. The "partner" (the twin's owner) is scripted, so every session is identical.
+Each participant does two 5-minute rounds, one with the **plant** and one with the **orb** (order counterbalanced), and answers a short questionnaire after each round, then a few final questions. The "partner" (the twin's owner) is scripted, so every session is identical.
 
 Stack: Vite + React + TypeScript, Three.js, Tailwind/Base UI, Supabase.
 
@@ -18,11 +18,13 @@ Round script (both forms, all values in `ROUND_CONFIG` in `src/config.ts`):
 | Time | Event |
 |---|---|
 | 0:00 | Fade in, `health = 0.7` |
-| 0:00–6:00 | Health decays slowly; talking raises it |
-| 2:00, 5:00, 8:00 | Partner pulse (8:00 fires even while withered) |
-| 6:00 | Forced withering to `0.15` over 30 s, regardless of talking |
-| 6:00–10:00 | Revive window: talking restores health |
-| 10:00 | Fade out → "Round complete, please wait for the researcher" |
+| 0:00–3:00 | Health decays slowly; talking raises it |
+| 1:00, 2:30, 4:00 | Partner pulse (4:00 fires even while withered) |
+| 3:00 | Forced withering to `0.15` over 20 s, regardless of talking |
+| 3:00–5:00 | Revive window: talking restores health |
+| 5:00 | Fade out → "Round complete, please wait for the researcher" |
+
+(The handover specified 10-minute rounds; they were shortened to 5 minutes with every event scaled proportionally.)
 
 Health never drops below `healthFloor` (0.08); the object never dies.
 
@@ -86,7 +88,7 @@ A bare link without `?session=` also works: it creates a session on Start and al
 | `?session=<id>` | Participant link (created in the admin panel) |
 | `?order=plant-orb` / `orb-plant` | Order for a bare link (a session created in the admin panel keeps its own order) |
 | `?code=P07` | Participant code for a bare link |
-| `?fast=1` | 10× speed (a round takes 1 minute) for testing |
+| `?fast=1` | 10× speed (a round takes 30 seconds) for testing |
 | `?debug=1` | Overlay with health, pulse, listening, mic level and thresholds, plus override buttons. **Hold Space to simulate talking.** Never show this to participants |
 | `?compare=1` | Plant and orb side by side, driven by one state, with sliders. Use it to check that both are equally expressive |
 
@@ -128,9 +130,10 @@ If a round was restarted, only events after the last restart count.
 
 Both forms read the same state (`health`, `pulse`, `listening`) through **one** eased `Expression` (`src/scene/expression.ts`):
 
-- same material, glow colour, emissive range, desaturation and dimming
+- same glowing material, orange glow colour, emissive range, desaturation and dimming. The orb glows over its whole surface; on the plant **only the petals glow**, while the stem, leaves and flower centre are green and don't glow (they still dim and desaturate with health). So the plant gives off less light in total than the orb. That was a deliberate design choice, and the analysis should mention it.
 - same floor glow and bloom
 - same idle breathing frequency
+- petals open as health rises and close into a bud as it fades, alongside the leaves
 - same pulse frequency and peak displacement (orb bob ↔ leaf-tip sway)
 - same lean displacement toward the camera while listening
 

@@ -8,7 +8,7 @@ import { FinalQuestions } from '@/components/participant/FinalQuestions'
 import { LikertSurvey } from '@/components/participant/LikertSurvey'
 import { RoundStage } from '@/components/participant/RoundStage'
 import { StartScreen } from '@/components/participant/StartScreen'
-import { URL_PARAMS } from '@/config'
+import { ROUND_MINUTES, URL_PARAMS } from '@/config'
 import type { Phase } from '@/data/live'
 import { StudySession } from '@/twin/StudySession'
 
@@ -70,8 +70,8 @@ export function ParticipantApp() {
             title={round === 1 ? 'Ready when you are' : 'Part 2 of 2'}
             description={
               round === 1
-                ? 'When you press Begin, an object will appear for about 10 minutes.'
-                : 'Next, a different object will appear for about 10 minutes.'
+                ? `When you press Begin, an object will appear for about ${ROUND_MINUTES} minutes.`
+                : `Next, a different object will appear for about ${ROUND_MINUTES} minutes.`
             }
           >
             <Button size="lg" className="self-start" onClick={startRound}>

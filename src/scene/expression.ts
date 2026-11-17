@@ -12,14 +12,16 @@ import type { TwinState } from '@/twin/RoundRunner'
  *  glow light. Only the shape and how it moves differ.
  */
 export const LOOK = {
-  /** Glow colour (light + emissive) for both forms. */
-  glowColor: '#ffbe6a',
-  /** Base surface colour for both forms. */
-  surfaceColor: '#d6dccb',
+  /** Glow colour (emissive + floor glow) for both forms. */
+  glowColor: '#ff7a1a',
+  /** Surface colour of the glowing parts: the whole orb, the plant's petals. */
+  surfaceColor: '#ff8c3c',
+  /** Plant stem and leaves (not glowing). Dims and desaturates like the rest. */
+  foliageColor: '#5f9e48',
   /** Emissive intensity at openness 0 / 1, plus extra at full pulse and while listening. */
   emissiveMin: 0.05,
-  emissiveMax: 0.75,
-  emissivePulse: 0.6,
+  emissiveMax: 0.45,
+  emissivePulse: 0.35,
   emissiveListening: 0.08,
   /** Glow pool on the floor (opacity) at openness 0 / 1, plus extra at full pulse. */
   poolMin: 0.02,
@@ -98,7 +100,22 @@ export function createSharedMaterial() {
   })
 }
 
+/**
+ * Non-glowing green material for the plant's stem and leaves. It dims and
+ * desaturates with health like the glowing parts, but has no emissive:
+ * only the petals glow.
+ */
+export function createBodyMaterial() {
+  return new THREE.MeshStandardMaterial({
+    color: LOOK.foliageColor,
+    roughness: 0.9,
+    metalness: 0,
+    side: THREE.DoubleSide,
+  })
+}
+
 const baseSurface = new THREE.Color(LOOK.surfaceColor)
+const baseFoliage = new THREE.Color(LOOK.foliageColor)
 const baseGlow = new THREE.Color(LOOK.glowColor)
 const scratch = new THREE.Color()
 
@@ -113,13 +130,19 @@ function desaturate(source: THREE.Color, saturation: number, out: THREE.Color) {
  * Neither form has its own light: a light inside the plant's bud would light its leaves,
  * while one inside the orb can't light its own surface, which would make the test unfair.
  */
-export function applyGlow(material: THREE.MeshStandardMaterial, pool: THREE.MeshBasicMaterial, e: Expression) {
+export function applyGlow(
+  material: THREE.MeshStandardMaterial,
+  body: THREE.MeshStandardMaterial,
+  pool: THREE.MeshBasicMaterial,
+  e: Expression,
+) {
   const o = e.openness
   const saturation = LOOK.saturationMin + (1 - LOOK.saturationMin) * o
   const dim = LOOK.dimSurface + (1 - LOOK.dimSurface) * o
 
   desaturate(baseSurface, saturation, scratch)
   material.color.copy(scratch).multiplyScalar(dim)
+  desaturate(baseFoliage, saturation, body.color).multiplyScalar(dim)
   desaturate(baseGlow, saturation, material.emissive)
   material.emissiveIntensity =
     LOOK.emissiveMin + (LOOK.emissiveMax - LOOK.emissiveMin) * o + LOOK.emissivePulse * e.pulse + LOOK.emissiveListening * e.lean

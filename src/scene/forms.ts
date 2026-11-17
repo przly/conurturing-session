@@ -3,7 +3,8 @@ import { LOOK, lerp, type Expression } from './expression'
 
 /**
  * The two forms. Both:
- *  - use the shared material (driven in `applyGlow`)
+ *  - use the shared glowing material (driven in `applyGlow`); on the plant
+ *    only the flower glows, the stem and leaves use a non-glowing material
  *  - map `openness` to their pose with the same easing (already in `Expression`)
  *  - breathe with `idle`, move with `pulseWave` (same peak displacement),
  *    and lean toward the camera with `lean` (same displacement at the top).
@@ -75,9 +76,35 @@ const PLANT = {
   /** Leaf width when withered (closed) vs healthy. */
   leafClosedWidth: 0.5,
   leafIdleDeg: 3,
-  budRadius: 0.1,
-  budMinScale: 0.7,
+  /** Flower head: petal count and length; the head tips toward the camera so the face shows. */
+  petals: 6,
+  petalLength: 0.3,
+  headTiltDeg: 35,
+  /** Petal angle above horizontal: open (healthy) vs closed into a bud (withered). */
+  petalOpenDeg: 15,
+  petalClosedDeg: 78,
+  /** Small extra petal flutter on a partner pulse (degrees). */
+  petalPulseDeg: 8,
+  centerRadius: 0.065,
+  headMinScale: 0.8,
   idleSwayDeg: 1.2,
+}
+
+/** Unit-length petal in the XZ plane pointing along +X: rounded tip, cupped upward. */
+function createPetalGeometry() {
+  const shape = new THREE.Shape()
+  shape.moveTo(0, 0)
+  shape.bezierCurveTo(0.15, 0.32, 0.85, 0.42, 1, 0)
+  shape.bezierCurveTo(0.85, -0.42, 0.15, -0.32, 0, 0)
+  const geometry = new THREE.ShapeGeometry(shape, 16)
+  const pos = geometry.attributes.position
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i)
+    const w = pos.getY(i)
+    pos.setXYZ(i, x, 0.9 * w * w + 0.12 * x * x, w)
+  }
+  geometry.computeVertexNormals()
+  return geometry
 }
 
 /** Unit-length leaf lying in the XZ plane, pointing along +X, gently cupped and curved. */
@@ -100,7 +127,8 @@ function createLeafGeometry() {
   return geometry
 }
 
-export function createPlant(material: THREE.Material): TwinForm {
+/** `material` glows (the petals only); `foliage` is the green, non-glowing stem, leaves and flower centre. */
+export function createPlant(material: THREE.Material, foliage: THREE.Material): TwinForm {
   const geometries: THREE.BufferGeometry[] = []
   const track = <T extends THREE.BufferGeometry>(g: T) => (geometries.push(g), g)
 
@@ -121,8 +149,8 @@ export function createPlant(material: THREE.Material): TwinForm {
     parent.add(joint)
     const segment = track(new THREE.CylinderGeometry(PLANT.stemRadius * 0.85, PLANT.stemRadius, length, 12))
     segment.translate(0, length / 2, 0)
-    joint.add(new THREE.Mesh(segment, material))
-    joint.add(new THREE.Mesh(jointGeometry, material))
+    joint.add(new THREE.Mesh(segment, foliage))
+    joint.add(new THREE.Mesh(jointGeometry, foliage))
     joints.push(joint)
     parent = joint
     offset = length
@@ -137,20 +165,34 @@ export function createPlant(material: THREE.Material): TwinForm {
     joints[segmentIndex].add(azimuth)
     const elevation = new THREE.Group()
     azimuth.add(elevation)
-    const blade = new THREE.Mesh(leafGeometry, material)
+    const blade = new THREE.Mesh(leafGeometry, foliage)
     blade.scale.setScalar(length)
     elevation.add(blade)
     return { elevation, blade, length, phase: i * 1.1 }
   })
 
-  // Bud on top.
-  const bud = new THREE.Group()
-  bud.position.y = PLANT.segments[PLANT.segments.length - 1] + PLANT.budRadius * 0.6
-  joints[joints.length - 1].add(bud)
-  const budGeometry = track(new THREE.SphereGeometry(PLANT.budRadius, 32, 24))
-  const budMesh = new THREE.Mesh(budGeometry, material)
-  budMesh.scale.set(1, 1.35, 1)
-  bud.add(budMesh)
+  // Flower on top: green centre, glowing orange petals that open with health and close into a bud.
+  const head = new THREE.Group()
+  head.position.y = PLANT.segments[PLANT.segments.length - 1]
+  head.rotation.x = PLANT.headTiltDeg * DEG
+  joints[joints.length - 1].add(head)
+  const centerGeometry = track(new THREE.SphereGeometry(PLANT.centerRadius, 24, 16))
+  const center = new THREE.Mesh(centerGeometry, foliage)
+  center.scale.set(1, 0.8, 1)
+  head.add(center)
+  const petalGeometry = track(createPetalGeometry())
+  const petals = Array.from({ length: PLANT.petals }, (_, i) => {
+    const azimuth = new THREE.Group()
+    azimuth.rotation.y = (i / PLANT.petals) * Math.PI * 2
+    head.add(azimuth)
+    const elevation = new THREE.Group()
+    elevation.position.x = PLANT.centerRadius * 0.5
+    azimuth.add(elevation)
+    const petal = new THREE.Mesh(petalGeometry, material)
+    petal.scale.setScalar(PLANT.petalLength)
+    elevation.add(petal)
+    return { elevation, phase: i * 0.9 }
+  })
 
   const leanAngle = Math.atan(LOOK.leanAmount / totalHeight)
 
@@ -175,7 +217,13 @@ export function createPlant(material: THREE.Material): TwinForm {
         leaf.blade.scale.z = leaf.length * lerp(PLANT.leafClosedWidth, 1, o)
       }
 
-      bud.scale.setScalar(lerp(PLANT.budMinScale, 1, o))
+      // Petals open as health rises and close into a bud as it fades; they flutter on a pulse.
+      for (const petal of petals) {
+        const wave = Math.sin(e.time * Math.PI * 2 * LOOK.pulseHz + petal.phase) * e.pulse
+        petal.elevation.rotation.z =
+          (lerp(PLANT.petalClosedDeg, PLANT.petalOpenDeg, o) + wave * PLANT.petalPulseDeg + e.idle * 2) * DEG
+      }
+      head.scale.setScalar(lerp(PLANT.headMinScale, 1, o))
     },
     dispose: () => geometries.forEach((g) => g.dispose()),
   }
