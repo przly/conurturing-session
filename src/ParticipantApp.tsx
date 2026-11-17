@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Screen } from '@/components/Screen'
 import { DebugOverlay } from '@/components/DebugOverlay'
@@ -20,6 +20,11 @@ export function ParticipantApp() {
   const [phase, setPhaseState] = useState<Phase>('start')
   const [round, setRound] = useState<1 | 2>(1)
   const [ending, setEnding] = useState(false)
+
+  // Connect to the admin panel right away (only for links made there), so the script can follow from the start.
+  useEffect(() => {
+    if (URL_PARAMS.session) session.connect()
+  }, [session])
 
   const setPhase = useCallback(
     (next: Phase) => {

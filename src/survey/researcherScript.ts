@@ -83,10 +83,13 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
     say: [
       'In a moment an object will appear on the screen, and it will stay for about 10 minutes.',
       'Imagine this is the object in your room, and its twin is with the person you thought of. Treat it however you like: you can talk to it as much or as little as you want. There is no right or wrong way.',
-      'I will step away so you have some privacy. The screen will tell you when the time is up.',
+      'I will stay in the room and sit quietly to the side. Just act as if I am not here. The screen will tell you when the time is up.',
       'Press Begin when you are ready.',
     ],
-    notes: ['Leave the room or sit out of sight. Do not talk during the round: the mic would pick up your voice.'],
+    notes: [
+      'Sit to the side or slightly behind them, out of their line of sight, not facing the screen together with them.',
+      'Do not talk during the round: the microphone would pick up your voice and count it as their talking.',
+    ],
     match: { phases: ['between'], round: null },
   },
   {
@@ -95,11 +98,12 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
     when: 'While the object is on screen (10 minutes)',
     say: [],
     notes: [
-      'Nothing to read. Stay quiet and out of sight.',
+      'Stay quiet, keep still and avoid reacting to what happens on screen (no nodding, smiling or sighing).',
+      'Take observation notes on paper, silently (no typing: the keyboard is audible).',
       'Watch the live view: health should rise when they talk. Pulses come at 2:00, 5:00 and 8:00, and the forced fade at 6:00.',
       'Only use the overrides if something clearly went wrong. They are logged as manual.',
-      'If the participant asks something, answer briefly and neutrally: "Do whatever feels natural."',
-      'Come back when the live view shows "round-done" (the screen fades out and says "Round complete").',
+      'If the participant asks something, answer briefly, quietly and neutrally: "Do whatever feels natural." Then go quiet again.',
+      'When the screen fades out and says "Round complete", go to the next step.',
       'If they want to stop: that is fine. Thank them, do the debrief (step 9), and ask whether they want their data deleted.',
     ],
     match: { phases: ['round'] },
@@ -123,7 +127,7 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
       'Same as before: it is in your room, and its twin is with the same person. You can talk to it as much or as little as you want.',
       'Press Begin when you are ready.',
     ],
-    notes: ['Use the same tone and the same distance as in round 1.'],
+    notes: ['Use the same tone, and sit in the same place as in round 1.'],
     match: { phases: ['between'], round: 1 },
   },
   {
@@ -160,4 +164,17 @@ export function currentStepIds(phase: Phase, round: number | null): string[] {
     if (!m || !m.phases.includes(phase)) return false
     return m.round === undefined || m.round === (round ?? null)
   }).map((step) => step.id)
+}
+
+/**
+ * The step that comes after `stepId`. Rounds repeat, so after round 2 the
+ * flow goes back to "During a round", and after the round-2 questions to the
+ * last questions. `round` = the last round started (null before round 1).
+ */
+export function nextStep(stepId: string, round: number | null): ScriptStep | null {
+  const byId = (id: string) => RESEARCHER_SCRIPT.find((step) => step.id === id) ?? null
+  if (stepId === 'round-2') return byId('during-round')
+  if (stepId === 'after-round') return byId(round === 2 ? 'final' : 'round-2')
+  const index = RESEARCHER_SCRIPT.findIndex((step) => step.id === stepId)
+  return index >= 0 ? (RESEARCHER_SCRIPT[index + 1] ?? null) : null
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session as AuthSession } from '@supabase/supabase-js'
-import { CopyIcon, DownloadIcon, ExternalLinkIcon, LogOutIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
+import { ArrowLeftIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, LogOutIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -162,31 +162,39 @@ function Dashboard({ email }: { email: string }) {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <NewSession
-        suggestedOrder={sessions.length % 2 === 0 ? 'plant-orb' : 'orb-plant'}
-        onCreated={async (id) => {
-          await load()
-          setSelected(id)
-        }}
-      />
-      <SessionList
-        sessions={sessions}
-        selected={selected}
-        loading={loading}
-        onSelect={setSelected}
-        onRefresh={load}
-      />
       {current ? (
-        <SessionDetail
-          key={current.id}
-          session={current}
-          onDeleted={async () => {
-            setSelected(null)
-            await load()
-          }}
-        />
+        // Focused view while running a session: the script follows the participant.
+        <>
+          <Button variant="ghost" size="sm" className="self-start" onClick={() => setSelected(null)}>
+            <ArrowLeftIcon aria-hidden="true" />
+            All sessions
+          </Button>
+          <SessionDetail
+            key={current.id}
+            session={current}
+            onDeleted={async () => {
+              setSelected(null)
+              await load()
+            }}
+          />
+        </>
       ) : (
-        <ResearcherScript live={null} />
+        <>
+          <NewSession
+            suggestedOrder={sessions.length % 2 === 0 ? 'plant-orb' : 'orb-plant'}
+            onCreated={async (id) => {
+              await load()
+              setSelected(id)
+            }}
+          />
+          <SessionList
+            sessions={sessions}
+            selected={selected}
+            loading={loading}
+            onSelect={setSelected}
+            onRefresh={load}
+          />
+        </>
       )}
     </>
   )
@@ -442,6 +450,7 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
 
   return (
     <>
+    <ResearcherScript status={status} connected={connected} />
     <Card>
       <CardHeader>
         <CardTitle>
@@ -550,7 +559,6 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
         </Button>
       </CardFooter>
     </Card>
-    <ResearcherScript live={connected ? status : null} />
     </>
   )
 }

@@ -1,87 +1,184 @@
 import { useState } from 'react'
 import { ChevronDownIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardDescription, CardHeader, CardPanel, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardFooter, CardHeader, CardPanel, CardTitle } from '@/components/ui/card'
+import { ROUND_CONFIG } from '@/config'
 import type { LiveStatus } from '@/data/live'
-import { currentStepIds, RESEARCHER_SCRIPT } from '@/survey/researcherScript'
+import { currentStepIds, nextStep, RESEARCHER_SCRIPT, type ScriptStep } from '@/survey/researcherScript'
 import { cn } from '@/lib/utils'
 
-/** Read-aloud script; highlights the step that matches the live participant screen. */
-export function ResearcherScript({ live }: { live: LiveStatus | null }) {
-  const [open, setOpen] = useState(true)
-  const current = live ? currentStepIds(live.phase, live.round) : []
+interface ResearcherScriptProps {
+  /** Last status received from the participant page (may be stale), or null if never connected. */
+  status: LiveStatus | null
+  connected: boolean
+}
+
+/** Steps to read before the participant page has connected. */
+const BEFORE_START = ['welcome', 'concept']
+
+const fmtTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`
+
+function describe(status: LiveStatus): string {
+  const r = status.round
+  switch (status.phase) {
+    case 'start':
+      return 'Start screen'
+    case 'calibrate':
+      return 'Microphone check'
+    case 'between':
+      return `Ready screen, before round ${r ? r + 1 : 1}`
+    case 'round':
+      return `Round ${r} · ${status.form} · ${fmtTime(status.t ?? 0)} / ${fmtTime(ROUND_CONFIG.durationSec)}`
+    case 'round-done':
+      return `Round ${r} complete`
+    case 'survey':
+      return `Questions after round ${r}`
+    case 'final':
+      return 'Last questions'
+    case 'done':
+      return 'Thank you screen'
+  }
+}
+
+/**
+ * Follows the participant: shows what to read aloud right now, previews
+ * the next step, and keeps the full script one click away.
+ */
+export function ResearcherScript({ status, connected }: ResearcherScriptProps) {
+  const [showAll, setShowAll] = useState(false)
+
+  const currentIds = status ? currentStepIds(status.phase, status.round) : BEFORE_START
+  const current = RESEARCHER_SCRIPT.filter((step) => currentIds.includes(step.id))
+  const next = current.length ? nextStep(current[current.length - 1].id, status?.round ?? null) : null
 
   return (
-    <Card>
-      <CardHeader>
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          className="flex w-full items-start justify-between gap-4 text-left"
-        >
-          <div className="flex flex-col gap-1">
-            <CardTitle>Script to read aloud</CardTitle>
-            <CardDescription>
-              {live
-                ? 'The highlighted step matches the participant’s screen right now.'
-                : 'Select a live session to highlight the current step.'}{' '}
-              <span className="italic">Italic notes are for you only.</span>
-            </CardDescription>
+    <div className="flex flex-col gap-3">
+      <Card className="border-primary/40">
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-lg">Read now</CardTitle>
+            {!status ? (
+              <Badge variant="outline">waiting for participant page</Badge>
+            ) : connected ? (
+              <Badge variant="success">live</Badge>
+            ) : (
+              <Badge variant="warning">connection lost: last known screen</Badge>
+            )}
           </div>
-          <ChevronDownIcon
-            aria-hidden="true"
-            className={cn('mt-1 size-5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')}
-          />
-        </button>
-      </CardHeader>
-      {open && (
-        <CardPanel>
-          <ol className="flex flex-col gap-3">
-            {RESEARCHER_SCRIPT.map((step, index) => {
-              const isCurrent = current.includes(step.id)
-              return (
-                <li
-                  key={step.id}
-                  aria-current={isCurrent ? 'step' : undefined}
-                  className={cn(
-                    'flex flex-col gap-3 rounded-xl border p-4',
-                    isCurrent && 'border-primary/60 bg-accent',
-                  )}
-                >
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <h3 className="font-semibold">
-                      <span className="text-muted-foreground tabular-nums">{index + 1}.</span> {step.title}
-                    </h3>
-                    <span className="text-muted-foreground text-sm">{step.when}</span>
-                    {isCurrent && (
-                      <Badge variant="success" className="ms-auto">
-                        Now
-                      </Badge>
-                    )}
-                  </div>
-                  {step.say.length > 0 && (
-                    <div className="flex flex-col gap-2 border-primary/30 border-s-2 ps-3 text-base leading-relaxed">
-                      {step.say.map((line, i) => (
-                        <p key={i} className="text-pretty">
-                          {line}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  {step.notes && (
-                    <ul className="flex list-disc flex-col gap-1 ps-5 text-muted-foreground text-sm italic">
-                      {step.notes.map((note, i) => (
-                        <li key={i}>{note}</li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              )
-            })}
-          </ol>
+          <CardDescription>
+            {status
+              ? `Participant is on: ${describe(status)}`
+              : 'Open the participant link on their laptop. Start with this when they sit down.'}
+          </CardDescription>
+        </CardHeader>
+        <CardPanel className="flex flex-col gap-6">
+          {current.map((step) => (
+            <StepBody key={step.id} step={step} size="large" />
+          ))}
         </CardPanel>
+        {next && (
+          <CardFooter className="flex-col items-start gap-0.5 text-sm">
+            <span className="text-muted-foreground">Next</span>
+            <span>
+              <span className="font-medium">{next.title}</span>{' '}
+              <span className="text-muted-foreground">· {next.when}</span>
+            </span>
+          </CardFooter>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <button
+            type="button"
+            onClick={() => setShowAll((open) => !open)}
+            aria-expanded={showAll}
+            className="flex w-full items-center justify-between gap-4 text-left"
+          >
+            <CardTitle className="text-base">Full script</CardTitle>
+            <ChevronDownIcon
+              aria-hidden="true"
+              className={cn('size-5 shrink-0 text-muted-foreground transition-transform', showAll && 'rotate-180')}
+            />
+          </button>
+        </CardHeader>
+        {showAll && (
+          <CardPanel>
+            <ol className="flex flex-col gap-3">
+              {RESEARCHER_SCRIPT.map((step, index) => {
+                const isCurrent = currentIds.includes(step.id)
+                return (
+                  <li
+                    key={step.id}
+                    aria-current={isCurrent ? 'step' : undefined}
+                    className={cn('rounded-xl border p-4', isCurrent && 'border-primary/60 bg-accent')}
+                  >
+                    <StepBody step={step} number={index + 1} current={isCurrent} />
+                  </li>
+                )
+              })}
+            </ol>
+          </CardPanel>
+        )}
+      </Card>
+    </div>
+  )
+}
+
+function StepBody({
+  step,
+  number,
+  current,
+  size = 'normal',
+}: {
+  step: ScriptStep
+  number?: number
+  current?: boolean
+  size?: 'normal' | 'large'
+}) {
+  const large = size === 'large'
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h3 className={cn('font-semibold', large && 'text-lg')}>
+          {number !== undefined && <span className="text-muted-foreground tabular-nums">{number}. </span>}
+          {step.title}
+        </h3>
+        <span className="text-muted-foreground text-sm">{step.when}</span>
+        {current && (
+          <Badge variant="success" className="ms-auto">
+            Now
+          </Badge>
+        )}
+      </div>
+      {step.say.length > 0 ? (
+        <div
+          className={cn(
+            'flex flex-col border-primary/40 border-s-2 ps-4',
+            large ? 'gap-3 text-lg leading-relaxed sm:text-xl' : 'gap-2 text-base leading-relaxed',
+          )}
+        >
+          {step.say.map((line, i) => (
+            <p key={i} className="text-pretty">
+              {line}
+            </p>
+          ))}
+        </div>
+      ) : (
+        large && <p className="text-muted-foreground">Nothing to read aloud.</p>
       )}
-    </Card>
+      {step.notes && (
+        <ul
+          className={cn(
+            'flex list-disc flex-col gap-1 ps-5 text-muted-foreground italic',
+            large ? 'text-base' : 'text-sm',
+          )}
+        >
+          {step.notes.map((note, i) => (
+            <li key={i}>{note}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

@@ -63,6 +63,15 @@ export class StudySession {
       p_imagined: this.imaginedPerson,
     })
     if (isOrder(order)) this.order = order
+    this.connect()
+  }
+
+  /**
+   * Open the live link to the admin panel (safe to call more than once).
+   * Called as soon as the page opens, so the researcher sees the start screen too.
+   */
+  connect() {
+    if (this.live) return
     this.live = openParticipantChannel(this.id, this.handleCommand)
     this.statusTimer = window.setInterval(() => this.sendStatus(), 1000)
   }
