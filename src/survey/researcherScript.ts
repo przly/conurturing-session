@@ -72,6 +72,7 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
     notes: [
       'Stay quiet yourself during the silence part.',
       'If it says it could not hear them clearly, ask them to move a bit closer and press "Check again".',
+      'If it says "Microphone needed": allow the microphone for this site (the screen shows how for Chrome and Safari), then reload. The page goes back to Start; that is fine, use the same link.',
     ],
     match: { phases: ['calibrate'] },
   },
@@ -98,6 +99,8 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
       'Watch the live view: health should rise when they talk. Pulses come at 2:00, 5:00 and 8:00, and the forced fade at 6:00.',
       'Only use the overrides if something clearly went wrong. They are logged as manual.',
       'If the participant asks something, answer briefly and neutrally: "Do whatever feels natural."',
+      'Come back when the live view shows "round-done" (the screen fades out and says "Round complete").',
+      'If they want to stop: that is fine. Thank them, do the debrief (step 9), and ask whether they want their data deleted.',
     ],
     match: { phases: ['round'] },
   },
@@ -144,6 +147,7 @@ export const RESEARCHER_SCRIPT: ScriptStep[] = [
     notes: [
       'If they withdraw: select their session in the admin panel and click "Delete session".',
       'Check that the done screen says "Everything is saved" before closing the tab.',
+      'If it says "Still trying to save": keep the tab open and check the internet connection; it retries by itself. "Unsaved rows" in the live view should drop to 0. If it stays stuck, click "Download data" on that screen and keep the file.',
     ],
     match: { phases: ['done'] },
   },
