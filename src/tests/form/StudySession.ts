@@ -1,6 +1,6 @@
 import { formsFor, isOrder, ROUND_CONFIG, SPEED, URL_PARAMS, type Form, type Order } from '@/config'
-import { openParticipantChannel, type Command, type Phase } from '@/data/live'
-import { SessionLogger, type AnswerRow } from '@/data/logger'
+import { openParticipantChannel, type Command, type Phase } from '@/shared/data/live'
+import { SessionLogger, type AnswerRow } from '@/shared/data/logger'
 import { MicDetector, type Calibration } from './MicDetector'
 import { RoundRunner, type TwinState } from './RoundRunner'
 
@@ -87,6 +87,7 @@ export class StudySession {
       session_id: this.id,
       round: 0,
       form: null,
+      condition: null,
       type: 'calibration',
       t_sec: null,
       meta: { ...calibration },
@@ -102,7 +103,7 @@ export class StudySession {
       config: ROUND_CONFIG,
       speed: SPEED,
       onEvent: (event) => {
-        this.logger.event({ session_id: this.id, round, form, ...event })
+        this.logger.event({ session_id: this.id, round, form, condition: form, ...event })
         if (event.type !== 'health') this.live?.event({ round, ...event })
         if (event.type === 'round_end') this.logger.flushSoon()
       },
@@ -121,6 +122,7 @@ export class StudySession {
       session_id: this.id,
       round,
       form,
+      condition: form,
       question_id,
       value,
     }))

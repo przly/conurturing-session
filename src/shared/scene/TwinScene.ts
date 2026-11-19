@@ -5,7 +5,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { Form } from '@/config'
-import type { TwinState } from '@/twin/RoundRunner'
+import type { TwinState } from '@/shared/scene/state'
 import { applyGlow, createBodyMaterial, createSharedMaterial, ExpressionDriver, type Expression } from './expression'
 import { createOrb, createPlant, type TwinForm } from './forms'
 

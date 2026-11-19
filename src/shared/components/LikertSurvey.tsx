@@ -2,24 +2,28 @@ import { useRef, useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Radio, RadioGroup } from '@/components/ui/radio-group'
-import { Screen } from '@/components/Screen'
-import { LIKERT_ITEMS, LIKERT_LABELS, LIKERT_MAX, LIKERT_MIN } from '@/survey/questions'
+import { Screen } from '@/shared/components/Screen'
+import { LIKERT_LABELS, LIKERT_MAX, LIKERT_MIN, SCALE_HINT, type SurveyItem } from '@/shared/survey/likert'
 import { cn } from '@/lib/utils'
 
 interface LikertSurveyProps {
-  part: number
-  imaginedPerson: string | null
+  title: string
+  /** Defaults to the agreement instruction with the scale ends. */
+  description?: string
+  /** Statements in display order, text already filled in. */
+  items: SurveyItem[]
   onSubmit: (values: Record<string, string>) => void
 }
 
 const POINTS = Array.from({ length: LIKERT_MAX - LIKERT_MIN + 1 }, (_, i) => String(LIKERT_MIN + i))
 
-export function LikertSurvey({ part, imaginedPerson, onSubmit }: LikertSurveyProps) {
+/** One page of 1–7 agreement statements; all are required. */
+export function LikertSurvey({ title, description, items, onSubmit }: LikertSurveyProps) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [showMissing, setShowMissing] = useState(false)
   const itemRefs = useRef<Record<string, HTMLFieldSetElement | null>>({})
 
-  const missing = LIKERT_ITEMS.filter((item) => !values[item.id])
+  const missing = items.filter((item) => !values[item.id])
 
   const submit = () => {
     if (missing.length) {
@@ -34,12 +38,12 @@ export function LikertSurvey({ part, imaginedPerson, onSubmit }: LikertSurveyPro
 
   return (
     <Screen
-      title={`Questions about object ${part}`}
-      description={`Think about the object you just spent time with. How much do you agree with each statement? (${LIKERT_MIN} = ${LIKERT_LABELS.min.toLowerCase()}, ${LIKERT_MAX} = ${LIKERT_LABELS.max.toLowerCase()})`}
+      title={title}
+      description={description ?? `How much do you agree with each statement? ${SCALE_HINT}`}
       className="max-w-2xl"
     >
       <div className="flex flex-col gap-4">
-        {LIKERT_ITEMS.map((item, index) => {
+        {items.map((item, index) => {
           const invalid = showMissing && !values[item.id]
           const labelId = `likert-${item.id}`
           return (
@@ -51,7 +55,7 @@ export function LikertSurvey({ part, imaginedPerson, onSubmit }: LikertSurveyPro
               className={cn('flex flex-col gap-3 rounded-xl border p-4', invalid && 'border-destructive/48')}
             >
               <legend id={labelId} className="float-left mb-1 w-full font-medium">
-                <span className="text-muted-foreground tabular-nums">{index + 1}.</span> {item.text(imaginedPerson)}
+                <span className="text-muted-foreground tabular-nums">{index + 1}.</span> {item.text}
               </legend>
               <RadioGroup
                 aria-labelledby={labelId}

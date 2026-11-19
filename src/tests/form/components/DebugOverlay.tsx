@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { SPEED } from '@/config'
-import type { TwinScene } from '@/scene/TwinScene'
-import type { StudySession } from '@/twin/StudySession'
+import type { TwinScene } from '@/shared/scene/TwinScene'
+import type { StudySession } from '@/tests/form/StudySession'
 
 interface DebugOverlayProps {
   session: StudySession

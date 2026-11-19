@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Radio, RadioGroup } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
-import { Screen } from '@/components/Screen'
+import { Screen } from '@/shared/components/Screen'
 import type { Form } from '@/config'
-import { FINAL_QUESTIONS, FORM_LABELS } from '@/survey/questions'
+import { FINAL_QUESTIONS, FORM_LABELS } from '@/tests/form/questions'
 
 interface FinalQuestionsProps {
   /** In the order the participant met them. */

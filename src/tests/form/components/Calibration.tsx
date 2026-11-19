@@ -3,9 +3,9 @@ import { CheckIcon, MicIcon, MicOffIcon, TriangleAlertIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Progress, ProgressIndicator, ProgressTrack } from '@/components/ui/progress'
-import { Screen } from '@/components/Screen'
+import { Screen } from '@/shared/components/Screen'
 import { MIC_CONFIG } from '@/config'
-import { MicError, type Calibration as CalibrationResult, type MicDetector } from '@/twin/MicDetector'
+import { MicError, type Calibration as CalibrationResult, type MicDetector } from '@/tests/form/MicDetector'
 
 type Step = 'intro' | 'silence' | 'speech' | 'result' | 'error'
 

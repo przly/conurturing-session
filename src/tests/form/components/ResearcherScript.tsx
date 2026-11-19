@@ -3,8 +3,8 @@ import { ChevronDownIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardDescription, CardFooter, CardHeader, CardPanel, CardTitle } from '@/components/ui/card'
 import { ROUND_CONFIG } from '@/config'
-import type { LiveStatus } from '@/data/live'
-import { currentStepIds, nextStep, RESEARCHER_SCRIPT, type ScriptStep } from '@/survey/researcherScript'
+import type { LiveStatus } from '@/shared/data/live'
+import { currentStepIds, nextStep, RESEARCHER_SCRIPT, type ScriptStep } from '@/tests/form/researcherScript'
 import { cn } from '@/lib/utils'
 
 interface ResearcherScriptProps {

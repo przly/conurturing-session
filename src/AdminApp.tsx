@@ -8,11 +8,13 @@ import { Card, CardDescription, CardFooter, CardHeader, CardPanel, CardTitle } f
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Radio, RadioGroup } from '@/components/ui/radio-group'
-import { ResearcherScript } from '@/components/admin/ResearcherScript'
-import { ROUND_CONFIG, type Order } from '@/config'
-import { downloadExport, fetchExport, type SessionRow } from '@/data/export'
-import { openAdminChannel, type Command, type LiveEvent, type LiveStatus } from '@/data/live'
-import { supabase } from '@/data/supabase'
+import { ResearcherScript } from '@/tests/form/components/ResearcherScript'
+import { Switch } from '@/components/ui/switch'
+import { allConditionOrders, clipsFor, joinList, ROUND_CONFIG, WEATHER_CONFIG, type Order, type TestType } from '@/config'
+import { downloadExport, fetchExport, type SessionRow } from '@/shared/data/export'
+import { summariseForm } from '@/tests/form/summary'
+import { openAdminChannel, type Command, type LiveEvent, type LiveStatus } from '@/shared/data/live'
+import { supabase } from '@/shared/data/supabase'
 import { cn } from '@/lib/utils'
 
 const fmtTime = (t: number | null) =>
@@ -181,7 +183,7 @@ function Dashboard({ email }: { email: string }) {
       ) : (
         <>
           <NewSession
-            suggestedOrder={sessions.length % 2 === 0 ? 'plant-orb' : 'orb-plant'}
+            sessions={sessions}
             onCreated={async (id) => {
               await load()
               setSelected(id)
@@ -200,22 +202,53 @@ function Dashboard({ email }: { email: string }) {
   )
 }
 
-function NewSession({ suggestedOrder, onCreated }: { suggestedOrder: Order; onCreated: (id: string) => void }) {
+/** What auto counterbalancing picks next, from the sessions created so far. */
+function nextInBalance(sessions: SessionRow[], includeC: boolean) {
+  const form = sessions.filter((s) => (s.test_type ?? 'form') === 'form')
+  const weather = sessions.filter((s) => s.test_type === 'weather')
+  const orders = allConditionOrders(includeC)
+  const sameGroup = weather.filter((s) => Boolean(s.include_c) === includeC).length
+  return {
+    order: (form.length % 2 === 0 ? 'plant-orb' : 'orb-plant') as Order,
+    conditions: joinList(orders[sameGroup % orders.length]),
+    clipsAlternate: weather.length % 2 === 1,
+  }
+}
+
+function NewSession({ sessions, onCreated }: { sessions: SessionRow[]; onCreated: (id: string) => void }) {
   const [code, setCode] = useState('')
+  const [testType, setTestType] = useState<TestType>('form')
   const [order, setOrder] = useState<Order | null>(null)
+  const [includeC, setIncludeC] = useState(false)
+  const [conditions, setConditions] = useState<string | null>(null)
+  const [clipsAlternate, setClipsAlternate] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<string | null>(null)
-  const effectiveOrder = order ?? suggestedOrder
+
+  const suggested = nextInBalance(sessions, includeC)
+  const effectiveOrder = order ?? suggested.order
+  const effectiveConditions = conditions ?? suggested.conditions
+  const effectiveAlternate = clipsAlternate ?? suggested.clipsAlternate
+  const conditionCount = includeC ? 3 : 2
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
     const id = crypto.randomUUID()
-    const { error } = await supabase!
-      .from('sessions')
-      .insert({ id, participant_code: code.trim() || null, order_ab: effectiveOrder })
+    const base = { id, participant_code: code.trim() || null, test_type: testType }
+    const row: Record<string, unknown> =
+      testType === 'form'
+        ? { ...base, order_ab: effectiveOrder }
+        : {
+            ...base,
+            include_c: includeC,
+            condition_order: effectiveConditions,
+            clip_assignment: joinList(clipsFor(effectiveAlternate, conditionCount)),
+            clip3_offset_sec: includeC ? WEATHER_CONFIG.clip3OffsetSec : null,
+          }
+    const { error } = await supabase!.from('sessions').insert(row)
     setBusy(false)
     if (error) {
       setError(error.message)
@@ -224,8 +257,13 @@ function NewSession({ suggestedOrder, onCreated }: { suggestedOrder: Order; onCr
     setCreated(id)
     setCode('')
     setOrder(null)
+    setConditions(null)
+    setClipsAlternate(null)
     onCreated(id)
   }
+
+  const radioLabel = 'flex items-center gap-2 text-sm'
+  const balanceHint = <span className="text-muted-foreground">(next in balance)</span>
 
   return (
     <Card>
@@ -234,28 +272,107 @@ function NewSession({ suggestedOrder, onCreated }: { suggestedOrder: Order; onCr
         <CardDescription>Creates a participant link. Open it on the participant's laptop.</CardDescription>
       </CardHeader>
       <form onSubmit={create}>
-        <CardPanel className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <Field className="sm:w-48">
-            <FieldLabel>Participant code</FieldLabel>
-            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="P01" required />
-          </Field>
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-2 font-medium text-sm">Order</legend>
-            <RadioGroup
-              value={effectiveOrder}
-              onValueChange={(v) => setOrder(v as Order)}
-              className="flex flex-row gap-4"
-            >
-              {(['plant-orb', 'orb-plant'] as const).map((o) => (
-                <label key={o} className="flex items-center gap-2 text-sm">
-                  <Radio value={o} />
-                  {o === 'plant-orb' ? 'Plant first' : 'Orb first'}
-                  {o === suggestedOrder && <span className="text-muted-foreground">(next in balance)</span>}
+        <CardPanel className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <Field className="sm:w-48">
+              <FieldLabel>Participant code</FieldLabel>
+              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="P01" required />
+            </Field>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-2 font-medium text-sm">Test</legend>
+              <RadioGroup
+                value={testType}
+                onValueChange={(v) => setTestType(v as TestType)}
+                className="flex flex-row gap-4"
+              >
+                <label className={radioLabel}>
+                  <Radio value="form" />
+                  Form (plant vs orb)
                 </label>
-              ))}
-            </RadioGroup>
-          </fieldset>
-          <Button type="submit" loading={busy} className="sm:ms-auto">
+                <label className={radioLabel}>
+                  <Radio value="weather" />
+                  Weather
+                </label>
+              </RadioGroup>
+            </fieldset>
+          </div>
+
+          {testType === 'form' ? (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-2 font-medium text-sm">Order</legend>
+              <RadioGroup
+                value={effectiveOrder}
+                onValueChange={(v) => setOrder(v as Order)}
+                className="flex flex-row flex-wrap gap-4"
+              >
+                {(['plant-orb', 'orb-plant'] as const).map((o) => (
+                  <label key={o} className={radioLabel}>
+                    <Radio value={o} />
+                    {o === 'plant-orb' ? 'Plant first' : 'Orb first'}
+                    {o === suggested.order && balanceHint}
+                  </label>
+                ))}
+              </RadioGroup>
+            </fieldset>
+          ) : (
+            <div className="flex flex-col gap-5">
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={includeC}
+                  onCheckedChange={(checked) => {
+                    setIncludeC(checked)
+                    setConditions(null)
+                  }}
+                />
+                Include condition C (Amsterdam weather)
+              </label>
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-2 font-medium text-sm">Condition order</legend>
+                <RadioGroup
+                  value={effectiveConditions}
+                  onValueChange={(v) => setConditions(v as string)}
+                  className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3"
+                >
+                  {allConditionOrders(includeC).map((list) => {
+                    const value = joinList(list)
+                    return (
+                      <label key={value} className={radioLabel}>
+                        <Radio value={value} />
+                        <span className="font-mono">{list.join(' → ')}</span>
+                        {value === suggested.conditions && balanceHint}
+                      </label>
+                    )
+                  })}
+                </RadioGroup>
+                <p className="text-muted-foreground text-xs">
+                  A = presence only · B = + hometown weather · C = + Amsterdam weather
+                </p>
+              </fieldset>
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-2 font-medium text-sm">Video clips per position</legend>
+                <RadioGroup
+                  value={effectiveAlternate ? 'alt' : 'std'}
+                  onValueChange={(v) => setClipsAlternate(v === 'alt')}
+                  className="flex flex-row flex-wrap gap-4"
+                >
+                  {[false, true].map((alt) => (
+                    <label key={String(alt)} className={radioLabel}>
+                      <Radio value={alt ? 'alt' : 'std'} />
+                      <span className="font-mono">{clipsFor(alt, conditionCount).join(', ')}</span>
+                      {alt === suggested.clipsAlternate && balanceHint}
+                    </label>
+                  ))}
+                </RadioGroup>
+                {includeC && (
+                  <p className="text-muted-foreground text-xs">
+                    The third condition replays clip 1 from {WEATHER_CONFIG.clip3OffsetSec} s.
+                  </p>
+                )}
+              </fieldset>
+            </div>
+          )}
+
+          <Button type="submit" loading={busy} className="self-start">
             Create link
           </Button>
         </CardPanel>
@@ -315,7 +432,7 @@ function SessionList(props: {
     setError(null)
     try {
       const stamp = new Date().toISOString().slice(0, 10)
-      downloadExport(await fetchExport(), `twin-study-all-${stamp}`, format)
+      downloadExport(await fetchExport(), `twin-study-all-${stamp}`, format, summariseForm)
     } catch (e) {
       setError(String((e as Error).message ?? e))
     }
@@ -356,8 +473,9 @@ function SessionList(props: {
               <thead className="bg-muted/50 text-left text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 font-medium">Code</th>
+                  <th className="px-3 py-2 font-medium">Test</th>
                   <th className="px-3 py-2 font-medium">Order</th>
-                  <th className="px-3 py-2 font-medium">Imagined person</th>
+                  <th className="px-3 py-2 font-medium">Person / hometown</th>
                   <th className="px-3 py-2 font-medium">Created</th>
                   <th className="px-3 py-2 font-medium">Started</th>
                 </tr>
@@ -377,8 +495,13 @@ function SessionList(props: {
                         {s.participant_code || s.id.slice(0, 8)}
                       </button>
                     </td>
-                    <td className="px-3 py-2">{s.order_ab}</td>
-                    <td className="px-3 py-2">{s.imagined_person ?? '–'}</td>
+                    <td className="px-3 py-2">{s.test_type ?? 'form'}</td>
+                    <td className="px-3 py-2">{s.test_type === 'weather' ? s.condition_order : s.order_ab}</td>
+                    <td className="px-3 py-2">
+                      {s.test_type === 'weather'
+                        ? [s.family_name, s.hometown_name].filter(Boolean).join(' · ') || '–'
+                        : (s.imagined_person ?? '–')}
+                    </td>
                     <td className="px-3 py-2 tabular-nums">{new Date(s.created_at).toLocaleString()}</td>
                     <td className="px-3 py-2 tabular-nums">
                       {s.started_at ? new Date(s.started_at).toLocaleTimeString() : '–'}
@@ -421,6 +544,7 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
   }, [session.id])
 
   const connected = lastSeen !== null && now - lastSeen < 4000
+  const isWeather = session.test_type === 'weather'
   const inRound = connected && status?.phase === 'round'
 
   const send = (command: Command, confirmText?: string) => {
@@ -432,7 +556,7 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
     setBusy(format)
     setError(null)
     try {
-      downloadExport(await fetchExport([session.id]), `twin-${session.participant_code || session.id.slice(0, 8)}`, format)
+      downloadExport(await fetchExport([session.id]), `twin-${session.participant_code || session.id.slice(0, 8)}`, format, summariseForm)
     } catch (e) {
       setError(String((e as Error).message ?? e))
     }
@@ -450,7 +574,7 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
 
   return (
     <>
-    <ResearcherScript status={status} connected={connected} />
+    {!isWeather && <ResearcherScript status={status} connected={connected} />}
     <Card>
       <CardHeader>
         <CardTitle>
@@ -460,8 +584,19 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
           </Badge>
         </CardTitle>
         <CardDescription>
-          Order {session.order_ab}
-          {session.imagined_person && ` · imagining ${session.imagined_person}`}
+          {isWeather ? (
+            <>
+              Weather test · conditions {session.condition_order} · clips {session.clip_assignment}
+              {session.include_c && session.clip3_offset_sec !== null && ` (third from ${session.clip3_offset_sec} s)`}
+              {session.hometown_name && ` · hometown ${session.hometown_name}`}
+              {session.family_name && ` · family ${session.family_name}`}
+            </>
+          ) : (
+            <>
+              Order {session.order_ab}
+              {session.imagined_person && ` · imagining ${session.imagined_person}`}
+            </>
+          )}
         </CardDescription>
       </CardHeader>
       <CardPanel className="flex flex-col gap-5">
@@ -493,6 +628,7 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
           </div>
         )}
 
+        {!isWeather && (
         <div className="flex flex-col gap-2">
           <h3 className="font-medium text-sm">Manual overrides (fallback only; logged as manual)</h3>
           <div className="flex flex-wrap gap-2">
@@ -520,6 +656,7 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
             </Button>
           </div>
         </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <h3 className="font-medium text-sm">Live events</h3>

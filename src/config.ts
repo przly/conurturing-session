@@ -49,6 +49,18 @@ export const MIC_CONFIG = {
   voiceHeadroomDb: 8,
 }
 
+/**
+ * Weather test settings. Timings are in condition seconds (sped up by `?fast=1`).
+ * Presence and weather visuals get their own sections in later steps.
+ */
+export const WEATHER_CONFIG = {
+  conditionSec: 300,
+  /** Amsterdam, for condition C. */
+  amsterdam: { name: 'Amsterdam', lat: 52.37, lon: 4.9 },
+  /** Where clip 1 starts when it is reused for a third condition (video seconds). */
+  clip3OffsetSec: 150,
+}
+
 export type Form = 'plant' | 'orb'
 export type Order = 'plant-orb' | 'orb-plant'
 
@@ -60,10 +72,81 @@ export function isOrder(value: unknown): value is Order {
   return value === 'plant-orb' || value === 'orb-plant'
 }
 
+// ─── Tests ────────────────────────────────────────────────────
+
+/** Which study a session runs. Stored on `sessions.test_type`. */
+export type TestType = 'form' | 'weather'
+
+export function isTestType(value: unknown): value is TestType {
+  return value === 'form' || value === 'weather'
+}
+
+/** Weather test conditions: A = presence only, B = + hometown weather, C = + Amsterdam weather. */
+export type WeatherCondition = 'A' | 'B' | 'C'
+
+/** Video clip number (1 → presence_1.mp4, 2 → presence_2.mp4). */
+export type ClipNumber = 1 | 2
+
+/** What the participant page needs to know about its session (from `get_session_config()`). */
+export interface SessionConfig {
+  test_type: TestType
+  order_ab: Order | null
+  /** Weather only, in the order shown, e.g. ['B', 'A', 'C']. */
+  condition_order: WeatherCondition[] | null
+  /** Weather only: clip per position, same length as `condition_order`. */
+  clip_assignment: ClipNumber[] | null
+  /** Weather only: where the reused clip starts in the third condition (video seconds). */
+  clip3_offset_sec: number | null
+  include_c: boolean
+}
+
+/** All condition orders, used to rotate through them (auto counterbalancing). */
+export function allConditionOrders(includeC: boolean): WeatherCondition[][] {
+  if (!includeC) {
+    return [
+      ['A', 'B'],
+      ['B', 'A'],
+    ]
+  }
+  return [
+    ['A', 'B', 'C'],
+    ['A', 'C', 'B'],
+    ['B', 'A', 'C'],
+    ['B', 'C', 'A'],
+    ['C', 'A', 'B'],
+    ['C', 'B', 'A'],
+  ]
+}
+
+/** Clips alternate across sessions; a third condition reuses clip 1 (from an offset). */
+export function clipsFor(alternate: boolean, conditionCount: number): ClipNumber[] {
+  const clips: ClipNumber[] = alternate ? [2, 1] : [1, 2]
+  return conditionCount === 3 ? [...clips, 1] : clips
+}
+
+/** "B,A,C" ↔ ['B', 'A', 'C'] (how lists are stored in text columns). */
+export const joinList = (list: readonly (string | number)[]) => list.join(',')
+
+export function parseConditions(value: string | null | undefined): WeatherCondition[] | null {
+  const list = value?.split(',').map((s) => s.trim())
+  return list?.length && list.every((c) => c === 'A' || c === 'B' || c === 'C') ? (list as WeatherCondition[]) : null
+}
+
+export function parseClips(value: string | null | undefined): ClipNumber[] | null {
+  const list = value?.split(',').map((s) => Number(s.trim()))
+  return list?.length && list.every((c) => c === 1 || c === 2) ? (list as ClipNumber[]) : null
+}
+
+// ─── URL ──────────────────────────────────────────────────────
+
 const params = new URLSearchParams(window.location.search)
 
 export const URL_PARAMS = {
   session: params.get('session'),
+  /** Bare-link preview of a test without a session (`?test=weather`); nothing is saved for the weather test. */
+  test: isTestType(params.get('test')) ? (params.get('test') as TestType) : null,
+  /** Weather preview only: condition order, e.g. `?conditions=B,A` (default A,B,C). */
+  conditions: parseConditions(params.get('conditions')),
   order: isOrder(params.get('order')) ? (params.get('order') as Order) : null,
   code: params.get('code'),
   admin: params.get('admin') === '1',

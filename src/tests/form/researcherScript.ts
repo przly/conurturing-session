@@ -14,7 +14,7 @@
  *  itself favours one form.
  */
 import { formatClock, ROUND_CONFIG, ROUND_MINUTES } from '@/config'
-import type { Phase } from '@/data/live'
+import type { Phase } from '@/shared/data/live'
 
 const pulseTimes = ROUND_CONFIG.pulsesAtSec.map(formatClock)
 const pulseList = `${pulseTimes.slice(0, -1).join(', ')} and ${pulseTimes[pulseTimes.length - 1]}`

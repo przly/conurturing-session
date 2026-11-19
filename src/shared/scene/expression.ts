@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { ROUND_CONFIG } from '@/config'
-import type { TwinState } from '@/twin/RoundRunner'
+import type { TwinState } from '@/shared/scene/state'
 
 /**
  * ─────────────────────────────────────────────────────────────

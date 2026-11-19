@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
-import { TwinCanvas } from '@/components/TwinCanvas'
+import { TwinCanvas } from '@/shared/components/TwinCanvas'
 import { ROUND_CONFIG } from '@/config'
-import type { TwinState } from '@/twin/RoundRunner'
+import type { TwinState } from '@/tests/form/RoundRunner'
 
 /**
  * `?compare=1`: both forms side by side, driven by ONE state object.

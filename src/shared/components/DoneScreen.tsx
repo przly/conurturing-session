@@ -3,12 +3,19 @@ import { CheckIcon, DownloadIcon, TriangleAlertIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { Screen } from '@/components/Screen'
-import { download } from '@/data/export'
-import type { StudySession } from '@/twin/StudySession'
+import { Screen } from '@/shared/components/Screen'
+import { download } from '@/shared/data/export'
+import type { SessionLogger } from '@/shared/data/logger'
 
-export function DoneScreen({ session }: { session: StudySession }) {
-  const { logger } = session
+interface DoneScreenProps {
+  logger: SessionLogger
+  sessionId: string
+  /** Session details put in front of the logged rows in the local download. */
+  details: Record<string, unknown>
+}
+
+/** Thank-you screen that waits for (or offers a download of) the logged data. */
+export function DoneScreen({ logger, sessionId, details }: DoneScreenProps) {
   const [pending, setPending] = useState(logger.pending)
   const [error, setError] = useState(logger.lastError)
 
@@ -66,8 +73,8 @@ export function DoneScreen({ session }: { session: StudySession }) {
           className="self-start"
           onClick={() =>
             download(
-              `twin-session-${session.id}.json`,
-              JSON.stringify({ session_id: session.id, order: session.order, imagined_person: session.imaginedPerson, ...logger.archive }, null, 2),
+              `twin-session-${sessionId}.json`,
+              JSON.stringify({ session_id: sessionId, ...details, ...logger.archive }, null, 2),
               'application/json',
             )
           }

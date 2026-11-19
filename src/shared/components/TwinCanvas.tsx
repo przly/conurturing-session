@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Form } from '@/config'
-import { TwinScene } from '@/scene/TwinScene'
-import type { TwinState } from '@/twin/RoundRunner'
+import { TwinScene } from '@/shared/scene/TwinScene'
+import type { TwinState } from '@/shared/scene/state'
 import { cn } from '@/lib/utils'
 
 interface TwinCanvasProps {

@@ -10,9 +10,7 @@ export interface LikertItem {
   reverse?: boolean
 }
 
-export const LIKERT_MIN = 1
-export const LIKERT_MAX = 7
-export const LIKERT_LABELS = { min: 'Strongly disagree', max: 'Strongly agree' }
+export { LIKERT_LABELS, LIKERT_MAX, LIKERT_MIN } from '@/shared/survey/likert'
 
 export const LIKERT_ITEMS: LikertItem[] = [
   { id: 'responsible', text: () => "I felt responsible for this object's wellbeing." },

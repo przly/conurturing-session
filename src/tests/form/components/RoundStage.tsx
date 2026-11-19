@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { PRESENTATION, URL_PARAMS, type Form } from '@/config'
-import { TwinCanvas } from '@/components/TwinCanvas'
-import { DebugOverlay } from '@/components/DebugOverlay'
-import type { TwinScene } from '@/scene/TwinScene'
-import type { StudySession } from '@/twin/StudySession'
+import { TwinCanvas } from '@/shared/components/TwinCanvas'
+import { DebugOverlay } from '@/tests/form/components/DebugOverlay'
+import type { TwinScene } from '@/shared/scene/TwinScene'
+import type { StudySession } from '@/tests/form/StudySession'
 
 interface RoundStageProps {
   session: StudySession

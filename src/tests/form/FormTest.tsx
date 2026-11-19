@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Screen } from '@/components/Screen'
-import { DebugOverlay } from '@/components/DebugOverlay'
-import { Calibration } from '@/components/participant/Calibration'
-import { DoneScreen } from '@/components/participant/DoneScreen'
-import { FinalQuestions } from '@/components/participant/FinalQuestions'
-import { LikertSurvey } from '@/components/participant/LikertSurvey'
-import { RoundStage } from '@/components/participant/RoundStage'
-import { StartScreen } from '@/components/participant/StartScreen'
+import { Screen } from '@/shared/components/Screen'
+import { DebugOverlay } from '@/tests/form/components/DebugOverlay'
+import { Calibration } from '@/tests/form/components/Calibration'
+import { DoneScreen } from '@/shared/components/DoneScreen'
+import { FinalQuestions } from '@/tests/form/components/FinalQuestions'
+import { LikertSurvey } from '@/shared/components/LikertSurvey'
+import { SCALE_HINT } from '@/shared/survey/likert'
+import { RoundStage } from '@/tests/form/components/RoundStage'
+import { StartScreen } from '@/tests/form/components/StartScreen'
 import { ROUND_MINUTES, URL_PARAMS } from '@/config'
-import type { Phase } from '@/data/live'
-import { StudySession } from '@/twin/StudySession'
+import type { Phase } from '@/shared/data/live'
+import { LIKERT_ITEMS } from '@/tests/form/questions'
+import { StudySession } from '@/tests/form/StudySession'
 
 /**
  * Start → mic calibration → (ready → round → round done → survey) × 2 → final questions → done.
  */
-export function ParticipantApp() {
+export function FormTest() {
   const [session] = useState(() => new StudySession())
   const [phase, setPhaseState] = useState<Phase>('start')
   const [round, setRound] = useState<1 | 2>(1)
@@ -101,8 +103,9 @@ export function ParticipantApp() {
         return (
           <LikertSurvey
             key={round}
-            part={round}
-            imaginedPerson={session.imaginedPerson}
+            title={`Questions about object ${round}`}
+            description={`Think about the object you just spent time with. How much do you agree with each statement? ${SCALE_HINT}`}
+            items={LIKERT_ITEMS.map((item) => ({ id: item.id, text: item.text(session.imaginedPerson) }))}
             onSubmit={(values) => {
               session.submitAnswers(round, session.forms[round - 1], values)
               if (round === 1) {
@@ -126,7 +129,13 @@ export function ParticipantApp() {
           />
         )
       case 'done':
-        return <DoneScreen session={session} />
+        return (
+          <DoneScreen
+            logger={session.logger}
+            sessionId={session.id}
+            details={{ order: session.order, imagined_person: session.imaginedPerson }}
+          />
+        )
     }
   })()
 

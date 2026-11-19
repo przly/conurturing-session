@@ -5,6 +5,8 @@ export interface EventRow {
   session_id: string
   round: number
   form: Form | null
+  /** 'A' / 'B' / 'C' (weather) or 'plant' / 'orb' (form); null outside a round/condition. */
+  condition: string | null
   type: string
   t_sec: number | null
   duration_sec?: number | null
@@ -16,6 +18,7 @@ export interface AnswerRow {
   session_id: string
   round: number
   form: Form | null
+  condition: string | null
   question_id: string
   value: string
 }

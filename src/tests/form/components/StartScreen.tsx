@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Screen } from '@/components/Screen'
+import { Screen } from '@/shared/components/Screen'
 
 export function StartScreen({ onStart }: { onStart: (imaginedPerson: string) => Promise<void> }) {
   const [name, setName] = useState('')
