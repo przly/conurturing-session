@@ -55,10 +55,111 @@ export const MIC_CONFIG = {
  */
 export const WEATHER_CONFIG = {
   conditionSec: 300,
+  presence: {
+    restHealth: 0.82,
+    wakeSec: 3,
+    fadeSec: 60,
+    passSec: 4,
+    leanDegrees: 7,
+    stillIdleRate: 0.55,
+    blurPx: 30,
+    contrast: 0.8,
+    opacity: 0.48,
+    textureWidth: 160,
+  },
   /** Amsterdam, for condition C. */
   amsterdam: { name: 'Amsterdam', lat: 52.37, lon: 4.9 },
   /** Where clip 1 starts when it is reused for a third condition (video seconds). */
   clip3OffsetSec: 150,
+  /** Shown in B/C until live weather is fetched, and when fetching fails. */
+  fallbackState: 'cloudy' as WeatherState,
+  /** Seconds a change between weather states takes (condition seconds; faster with ?fast=1). */
+  transitionSec: 5,
+
+  /**
+   * Scripted weather changes, same rhythm in every B/C condition: start in the
+   * real state, go to a nearby state at the first time, back at the second.
+   */
+  transitionsAtSec: [90, 210],
+  /** Each scripted change may move up to this far to stay clear of presence cues… */
+  transitionMaxShiftSec: 10,
+  /** …keeping at least this gap between a change (start to end) and any cue. */
+  transitionCueGapSec: 3,
+  /** Where the 1:30 change goes, per real state. */
+  nearby: { clear: 'cloudy', cloudy: 'rain', rain: 'cloudy', snow: 'cloudy', fog: 'cloudy' } as Record<WeatherState, WeatherState>,
+
+  /** Open-Meteo forecast request; after this the fallback state is used. */
+  fetchTimeoutSec: 6,
+  /** WMO weather codes (Open-Meteo `weather_code`) per state. Unknown codes count as cloudy. */
+  wmoStates: {
+    clear: [0, 1],
+    cloudy: [2, 3],
+    fog: [45, 48, 95, 96, 99], // fog, and thunderstorm ("fog / storm")
+    rain: [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82],
+    snow: [71, 73, 75, 77, 85, 86],
+  } as Record<WeatherState, number[]>,
+
+  /**
+   * Weather look. Colour and texture only: never movement or posture of the plant.
+   * Keep plant saturation ≥ 0.75 and brightness near 1: grey and dim is how the form
+   * test shows an unhealthy plant, so stronger values would read as "wilting".
+   * The room (background, haze, particles) carries most of the weather.
+   * Per state: tint (colour mixed in by tintAmount, keeping brightness), saturation
+   * (1 = unchanged), brightness multiplier, glowTint (how much the petal glow takes
+   * the tint), background colour, and amounts 0–1 of shimmer / rain / snow particles,
+   * haze (low contrast) and flicker (occasional brief brightening).
+   */
+  visuals: {
+    states: {
+      clear: { tint: '#ffb45a', tintAmount: 0.3, saturation: 1.1, brightness: 1.05, glowTint: 0.15, background: '#1c130a', shimmer: 1, rain: 0, snow: 0, haze: 0, flicker: 0 },
+      cloudy: { tint: '#a4adb8', tintAmount: 0.3, saturation: 0.8, brightness: 0.95, glowTint: 0.15, background: '#14171b', shimmer: 0, rain: 0, snow: 0, haze: 0.3, flicker: 0 },
+      rain: { tint: '#5e90dc', tintAmount: 0.35, saturation: 0.9, brightness: 0.95, glowTint: 0.25, background: '#0a1324', shimmer: 0, rain: 1, snow: 0, haze: 0.15, flicker: 0 },
+      snow: { tint: '#eef4ff', tintAmount: 0.35, saturation: 0.75, brightness: 1.05, glowTint: 0.2, background: '#171c25', shimmer: 0, rain: 0, snow: 1, haze: 0.1, flicker: 0 },
+      fog: { tint: '#8f949d', tintAmount: 0.35, saturation: 0.75, brightness: 0.92, glowTint: 0.25, background: '#191b1f', shimmer: 0, rain: 0, snow: 0, haze: 0.75, flicker: 1 },
+    } satisfies Record<WeatherState, WeatherVisual>,
+    /** Night (is_day = 0): cooler tint, plant slightly dimmer, room much darker. */
+    night: { tint: '#5468a8', tintAmount: 0.35, brightness: 0.85, background: 0.4 },
+    particles: {
+      /** Falling droplets. Speed in scene units per second. */
+      rain: { count: 220, size: 0.03, speed: 2.4, color: '#a9c8ff', opacity: 0.55 },
+      /** Slow drifting flakes with a gentle sparkle. */
+      snow: { count: 160, size: 0.05, speed: 0.16, color: '#ffffff', opacity: 0.8 },
+      /** Warm points that twinkle in place around the plant. */
+      shimmer: { count: 70, size: 0.05, color: '#ffd28a', opacity: 0.7 },
+    },
+    /** Scene fog distances at haze 1 (haze 0 = the normal room). */
+    haze: { fogNear: 1.5, fogFar: 6.5 },
+    /** Occasional brief brightening (storm feel): random gap, flash length, exposure boost. */
+    flicker: { minGapSec: 7, maxGapSec: 16, flashSec: 0.14, strength: 0.35 },
+  },
+}
+
+export type WeatherState = 'clear' | 'cloudy' | 'rain' | 'snow' | 'fog'
+export const WEATHER_STATES: WeatherState[] = ['clear', 'cloudy', 'rain', 'snow', 'fog']
+export const WEATHER_LABELS: Record<WeatherState, string> = {
+  clear: 'clear',
+  cloudy: 'cloudy',
+  rain: 'rain',
+  snow: 'snow',
+  fog: 'fog / storm',
+}
+
+export function isWeatherState(value: unknown): value is WeatherState {
+  return WEATHER_STATES.includes(value as WeatherState)
+}
+
+export interface WeatherVisual {
+  tint: string
+  tintAmount: number
+  saturation: number
+  brightness: number
+  glowTint: number
+  background: string
+  shimmer: number
+  rain: number
+  snow: number
+  haze: number
+  flicker: number
 }
 
 export type Form = 'plant' | 'orb'
@@ -147,6 +248,10 @@ export const URL_PARAMS = {
   test: isTestType(params.get('test')) ? (params.get('test') as TestType) : null,
   /** Weather preview only: condition order, e.g. `?conditions=B,A` (default A,B,C). */
   conditions: parseConditions(params.get('conditions')),
+  /** Weather test: force a weather state in B/C (`?weather=rain`), for visual tuning. */
+  weather: isWeatherState(params.get('weather')) ? (params.get('weather') as WeatherState) : null,
+  /** `?lab=weather`: the plant with the weather debug panel, no session or flow. */
+  lab: params.get('lab') === 'weather',
   order: isOrder(params.get('order')) ? (params.get('order') as Order) : null,
   code: params.get('code'),
   admin: params.get('admin') === '1',

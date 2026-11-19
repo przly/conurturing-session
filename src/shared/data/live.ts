@@ -9,12 +9,24 @@ import type { Form } from '@/config'
  * override commands back.
  */
 
-export type Phase = 'start' | 'calibrate' | 'round' | 'round-done' | 'survey' | 'between' | 'final' | 'done'
+export type Phase =
+  | 'start'
+  | 'calibrate' // form
+  | 'intro' // weather: intro clip
+  | 'check' // weather: comprehension question
+  | 'between' // form: before a round; weather: framing line before a condition
+  | 'round' // a round (form) or condition (weather) is running
+  | 'round-done'
+  | 'survey'
+  | 'final'
+  | 'done'
 
 export interface LiveStatus {
   phase: Phase
   round: number | null
   form: Form | null
+  /** Weather test: 'A' / 'B' / 'C' of the current condition (absent in the form test). */
+  condition?: string | null
   t: number | null
   health: number | null
   pulse: number | null

@@ -11,6 +11,9 @@ interface ResearcherScriptProps {
   /** Last status received from the participant page (may be stale), or null if never connected. */
   status: LiveStatus | null
   connected: boolean
+  steps?: ScriptStep[]
+  describeStatus?: (status: LiveStatus) => string
+  getNextStep?: (stepId: string, round: number | null) => ScriptStep | null
 }
 
 /** Steps to read before the participant page has connected. */
@@ -37,6 +40,9 @@ function describe(status: LiveStatus): string {
       return 'Last questions'
     case 'done':
       return 'Thank you screen'
+    case 'intro':
+    case 'check':
+      return status.phase // weather-test phases; never sent by the form test
   }
 }
 
@@ -44,12 +50,18 @@ function describe(status: LiveStatus): string {
  * Follows the participant: shows what to read aloud right now, previews
  * the next step, and keeps the full script one click away.
  */
-export function ResearcherScript({ status, connected }: ResearcherScriptProps) {
+export function ResearcherScript({
+  status, connected, steps = RESEARCHER_SCRIPT, describeStatus = describe, getNextStep = nextStep,
+}: ResearcherScriptProps) {
   const [showAll, setShowAll] = useState(false)
 
-  const currentIds = status ? currentStepIds(status.phase, status.round) : BEFORE_START
-  const current = RESEARCHER_SCRIPT.filter((step) => currentIds.includes(step.id))
-  const next = current.length ? nextStep(current[current.length - 1].id, status?.round ?? null) : null
+  const currentIds = !status
+    ? BEFORE_START
+    : steps === RESEARCHER_SCRIPT
+      ? currentStepIds(status.phase, status.round)
+      : steps.filter((step) => step.match?.phases.includes(status.phase)).map((step) => step.id)
+  const current = steps.filter((step) => currentIds.includes(step.id))
+  const next = current.length ? getNextStep(current[current.length - 1].id, status?.round ?? null) : null
 
   return (
     <div className="flex flex-col gap-3">
@@ -67,7 +79,7 @@ export function ResearcherScript({ status, connected }: ResearcherScriptProps) {
           </div>
           <CardDescription>
             {status
-              ? `Participant is on: ${describe(status)}`
+              ? `Participant is on: ${describeStatus(status)}`
               : 'Open the participant link on their laptop. Start with this when they sit down.'}
           </CardDescription>
         </CardHeader>
@@ -105,7 +117,7 @@ export function ResearcherScript({ status, connected }: ResearcherScriptProps) {
         {showAll && (
           <CardPanel>
             <ol className="flex flex-col gap-3">
-              {RESEARCHER_SCRIPT.map((step, index) => {
+              {steps.map((step, index) => {
                 const isCurrent = currentIds.includes(step.id)
                 return (
                   <li

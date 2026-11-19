@@ -14,4 +14,7 @@ export interface TwinState {
    * calibration (normal speech ≈ 0.6). Drives visuals only, not health.
    */
   voice: number
+  leanX?: number
+  idleRate?: number
+  preventDroop?: boolean
 }

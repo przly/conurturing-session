@@ -1,0 +1,49 @@
+import { useEffect, useState } from 'react'
+import { URL_PARAMS, WEATHER_CONFIG } from '@/config'
+import { TwinCanvas } from '@/shared/components/TwinCanvas'
+import type { TwinScene } from '@/shared/scene/TwinScene'
+import { WeatherDebugPanel } from './components/WeatherDebugPanel'
+import { loadPresence } from './presence/CueTrack'
+import { PresenceDriver } from './presence/PresenceDriver'
+import { WeatherControl } from './WeatherControl'
+
+/** Full-screen playback and weather controls, with no session or logging. */
+export function WeatherLab() {
+  const [weather] = useState(() => {
+    const control = new WeatherControl()
+    control.show(URL_PARAMS.weather ?? WEATHER_CONFIG.fallbackState, true, URL_PARAMS.weather ? 'url' : 'debug')
+    return control
+  })
+  const [scene, setScene] = useState<TwinScene | null>(null)
+  const [preview, setPreview] = useState<{ presence: PresenceDriver; backdrop: { video: HTMLVideoElement } & typeof WEATHER_CONFIG.presence }>()
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    let frame = 0
+    void loadPresence(1, 0, controller.signal).then(async (track) => {
+      await track.video.play()
+      if (controller.signal.aborted) return
+      const update = () => {
+        track.update(() => {})
+        frame = requestAnimationFrame(update)
+      }
+      update()
+      setPreview({ presence: new PresenceDriver(track), backdrop: { video: track.video, ...WEATHER_CONFIG.presence } })
+    }).catch(() => {
+      if (!controller.signal.aborted) setError(true)
+    })
+    return () => {
+      controller.abort()
+      cancelAnimationFrame(frame)
+    }
+  }, [])
+
+  return (
+    <div className="fixed inset-0 bg-[#0d0e11]">
+      {preview && <TwinCanvas form="plant" getState={preview.presence.read} getWeather={weather.look} onScene={setScene} backdrop={preview.backdrop} />}
+      {error && <p className="p-4 text-center text-white">Presence preview could not load.</p>}
+      <WeatherDebugPanel weather={weather} session={null} scene={scene} presence={preview?.presence} />
+    </div>
+  )
+}

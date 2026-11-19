@@ -16,6 +16,10 @@ export interface SessionRow {
   family_name: string | null
   started_at: string | null
   created_at: string
+  /** From the `session_overview` view (admin list only, not in exports). */
+  current_round?: number | null
+  completed?: boolean
+  weather_failed?: boolean
 }
 
 export interface StoredEvent {

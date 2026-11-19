@@ -12,13 +12,19 @@ interface LikertSurveyProps {
   description?: string
   /** Statements in display order, text already filled in. */
   items: SurveyItem[]
+  pictureItem?: {
+    id: string
+    render: (point: number) => React.ReactNode
+    label: (point: number) => string
+    missingMessage: string
+  }
   onSubmit: (values: Record<string, string>) => void
 }
 
 const POINTS = Array.from({ length: LIKERT_MAX - LIKERT_MIN + 1 }, (_, i) => String(LIKERT_MIN + i))
 
 /** One page of 1–7 agreement statements; all are required. */
-export function LikertSurvey({ title, description, items, onSubmit }: LikertSurveyProps) {
+export function LikertSurvey({ title, description, items, pictureItem, onSubmit }: LikertSurveyProps) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [showMissing, setShowMissing] = useState(false)
   const itemRefs = useRef<Record<string, HTMLFieldSetElement | null>>({})
@@ -44,6 +50,7 @@ export function LikertSurvey({ title, description, items, onSubmit }: LikertSurv
     >
       <div className="flex flex-col gap-4">
         {items.map((item, index) => {
+          const picture = pictureItem?.id === item.id ? pictureItem : undefined
           const invalid = showMissing && !values[item.id]
           const labelId = `likert-${item.id}`
           return (
@@ -62,22 +69,22 @@ export function LikertSurvey({ title, description, items, onSubmit }: LikertSurv
                 aria-invalid={invalid || undefined}
                 value={values[item.id] ?? null}
                 onValueChange={(value) => setValues((prev) => ({ ...prev, [item.id]: value as string }))}
-                className="grid grid-cols-7 gap-1.5"
+                className={cn('grid gap-1.5', picture ? 'grid-cols-4 sm:grid-cols-7' : 'grid-cols-7')}
               >
                 {POINTS.map((point) => (
                   <label
                     key={point}
-                    className="flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border py-2 tabular-nums hover:bg-accent/50 has-data-checked:border-primary/60 has-data-checked:bg-accent"
+                    className={cn('flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border py-2 tabular-nums hover:bg-accent/50 has-data-checked:border-primary/60 has-data-checked:bg-accent', picture && 'px-1')}
                   >
-                    <Radio value={point} aria-label={labelFor(point)} />
-                    <span className="text-sm">{point}</span>
+                    <Radio value={point} aria-label={picture ? picture.label(Number(point)) : labelFor(point)} />
+                    {picture ? picture.render(Number(point)) : <span className="text-sm">{point}</span>}
                   </label>
                 ))}
               </RadioGroup>
-              <div className="flex justify-between text-muted-foreground text-xs">
+              {!picture && <div className="flex justify-between text-muted-foreground text-xs">
                 <span>{LIKERT_LABELS.min}</span>
                 <span>{LIKERT_LABELS.max}</span>
-              </div>
+              </div>}
             </fieldset>
           )
         })}
@@ -86,7 +93,7 @@ export function LikertSurvey({ title, description, items, onSubmit }: LikertSurv
       {showMissing && missing.length > 0 && (
         <Alert variant="error">
           <AlertDescription>
-            Please answer {missing.length === 1 ? 'the highlighted statement' : `all ${missing.length} highlighted statements`}.
+            {pictureItem?.missingMessage ?? `Please answer ${missing.length === 1 ? 'the highlighted statement' : `all ${missing.length} highlighted statements`}.`}
           </AlertDescription>
         </Alert>
       )}

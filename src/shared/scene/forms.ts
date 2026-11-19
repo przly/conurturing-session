@@ -208,10 +208,10 @@ export function createPlant(material: THREE.Material, foliage: THREE.Material): 
       const o = e.openness
       // Lean toward the camera while listening; tiny idle sway.
       body.rotation.x = e.lean * leanAngle
-      body.rotation.z = e.idle * PLANT.idleSwayDeg * DEG
+      body.rotation.z = e.idle * PLANT.idleSwayDeg * DEG - (e.leanX ?? 0)
 
       // Stem droops sideways as health drops.
-      const bend = lerp(PLANT.droopDeg, PLANT.healthyBendDeg, o) * DEG
+      const bend = lerp(PLANT.droopDeg, PLANT.healthyBendDeg, e.preventDroop ? 1 : o) * DEG
       joints.forEach((joint, i) => (joint.rotation.z = i === 0 ? bend * 0.4 : bend))
 
       for (const leaf of leaves) {

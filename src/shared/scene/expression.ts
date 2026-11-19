@@ -65,6 +65,8 @@ export interface Expression {
   pulseWave: number
   /** Seconds since the scene started (for per-part phase offsets). */
   time: number
+  leanX?: number
+  preventDroop?: boolean
 }
 
 /** Health → openness, so both forms use the same normalised range. */
@@ -76,6 +78,7 @@ export function healthToOpenness(health: number) {
 export class ExpressionDriver {
   readonly value: Expression = { openness: 0, pulse: 0, lean: 0, voice: 0, idle: 0, pulseWave: 0, time: 0 }
   private first = true
+  private idleTime = 0
 
   update(state: TwinState, dt: number) {
     const v = this.value
@@ -91,7 +94,10 @@ export class ExpressionDriver {
     v.voice = ease(v.voice, state.voice, state.voice > v.voice ? LOOK.voiceAttackRate : LOOK.voiceReleaseRate)
     v.time += dt
     const idleAmount = LOOK.idleMinAmount + (1 - LOOK.idleMinAmount) * v.openness
-    v.idle = Math.sin(v.time * Math.PI * 2 * LOOK.idleHz) * idleAmount
+    this.idleTime += dt * (state.idleRate ?? 1)
+    v.idle = Math.sin(this.idleTime * Math.PI * 2 * LOOK.idleHz) * idleAmount
+    if (state.leanX !== undefined) v.leanX = ease(v.leanX ?? 0, state.leanX, LOOK.leanRate)
+    v.preventDroop = state.preventDroop
     v.pulseWave = Math.sin(v.time * Math.PI * 2 * LOOK.pulseHz) * v.pulse
     return v
   }

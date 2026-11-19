@@ -11,8 +11,10 @@ import { Radio, RadioGroup } from '@/components/ui/radio-group'
 import { ResearcherScript } from '@/tests/form/components/ResearcherScript'
 import { Switch } from '@/components/ui/switch'
 import { allConditionOrders, clipsFor, joinList, ROUND_CONFIG, WEATHER_CONFIG, type Order, type TestType } from '@/config'
-import { downloadExport, fetchExport, type SessionRow } from '@/shared/data/export'
+import { downloadExport, fetchExport, type ExportData, type SessionRow } from '@/shared/data/export'
 import { summariseForm } from '@/tests/form/summary'
+import { summariseWeather } from '@/tests/weather/summary'
+import { describeWeather, nextWeatherStep, WEATHER_RESEARCHER_SCRIPT } from '@/tests/weather/researcherScript'
 import { openAdminChannel, type Command, type LiveEvent, type LiveStatus } from '@/shared/data/live'
 import { supabase } from '@/shared/data/supabase'
 import { cn } from '@/lib/utils'
@@ -128,7 +130,8 @@ function Dashboard({ email }: { email: string }) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase!.from('sessions').select('*').order('created_at', { ascending: false })
+    // The overview view adds status columns (current round, completed, weather fetch failed).
+    const { data, error } = await supabase!.from('session_overview').select('*').order('created_at', { ascending: false })
     if (error) setError(error.message)
     else setSessions(data as SessionRow[])
     setLoading(false)
@@ -417,6 +420,26 @@ function LinkRow({ label, href }: { label: string; href: string }) {
   )
 }
 
+const summarisers = { form: summariseForm, weather: summariseWeather }
+const testOf = (session: SessionRow) => session.test_type ?? 'form'
+const weatherPreview = '?test=weather&fast=1&debug=1'
+
+function rowsForTest(data: ExportData, test: TestType): ExportData {
+  const sessions = data.sessions.filter((session) => testOf(session) === test)
+  const ids = new Set(sessions.map((session) => session.id))
+  return {
+    sessions,
+    events: data.events.filter((event) => ids.has(event.session_id)),
+    answers: data.answers.filter((answer) => ids.has(answer.session_id)),
+  }
+}
+
+function sessionStatus(session: SessionRow) {
+  if (session.completed) return 'Completed'
+  if (session.current_round) return `${testOf(session) === 'weather' ? 'Condition' : 'Round'} ${session.current_round}`
+  return session.started_at ? 'Started' : 'Not started'
+}
+
 function SessionList(props: {
   sessions: SessionRow[]
   selected: string | null
@@ -424,6 +447,8 @@ function SessionList(props: {
   onSelect: (id: string) => void
   onRefresh: () => void
 }) {
+  const [filter, setFilter] = useState<TestType | 'all'>('all')
+  const visibleSessions = props.sessions.filter((session) => filter === 'all' || testOf(session) === filter)
   const [exporting, setExporting] = useState<'json' | 'csv' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -432,7 +457,12 @@ function SessionList(props: {
     setError(null)
     try {
       const stamp = new Date().toISOString().slice(0, 10)
-      downloadExport(await fetchExport(), `twin-study-all-${stamp}`, format, summariseForm)
+      const data = await fetchExport()
+      const tests: TestType[] = filter === 'all' ? ['form', 'weather'] : [filter]
+      for (const test of tests) {
+        const rows = rowsForTest(data, test)
+        if (rows.sessions.length) downloadExport(rows, `twin-study-${test}-${stamp}`, format, summarisers[test])
+      }
     } catch (e) {
       setError(String((e as Error).message ?? e))
     }
@@ -446,16 +476,28 @@ function SessionList(props: {
         <CardDescription>Select one for the live view, overrides and export.</CardDescription>
       </CardHeader>
       <CardPanel className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            Test type
+            <select
+              className="h-8 rounded-md border bg-background px-2"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value as typeof filter)}
+            >
+              <option value="all">All</option>
+              <option value="form">Form</option>
+              <option value="weather">Weather</option>
+            </select>
+          </label>
           <Button variant="outline" size="sm" onClick={props.onRefresh} loading={props.loading}>
             <RefreshCwIcon aria-hidden="true" />
             Refresh
           </Button>
-          <Button variant="outline" size="sm" onClick={() => exportAll('csv')} loading={exporting === 'csv'}>
+          <Button variant="outline" size="sm" onClick={() => exportAll('csv')} loading={exporting === 'csv'} disabled={exporting !== null || !visibleSessions.length}>
             <DownloadIcon aria-hidden="true" />
             Export all (CSV)
           </Button>
-          <Button variant="outline" size="sm" onClick={() => exportAll('json')} loading={exporting === 'json'}>
+          <Button variant="outline" size="sm" onClick={() => exportAll('json')} loading={exporting === 'json'} disabled={exporting !== null || !visibleSessions.length}>
             <DownloadIcon aria-hidden="true" />
             Export all (JSON)
           </Button>
@@ -465,8 +507,8 @@ function SessionList(props: {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {props.sessions.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No sessions yet.</p>
+        {visibleSessions.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No sessions match this filter.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
@@ -477,11 +519,11 @@ function SessionList(props: {
                   <th className="px-3 py-2 font-medium">Order</th>
                   <th className="px-3 py-2 font-medium">Person / hometown</th>
                   <th className="px-3 py-2 font-medium">Created</th>
-                  <th className="px-3 py-2 font-medium">Started</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {props.sessions.map((s) => (
+                {visibleSessions.map((s) => (
                   <tr
                     key={s.id}
                     onClick={() => props.onSelect(s.id)}
@@ -494,6 +536,11 @@ function SessionList(props: {
                       <button type="button" className="font-medium underline-offset-4 hover:underline">
                         {s.participant_code || s.id.slice(0, 8)}
                       </button>
+                      {s.weather_failed && (
+                        <Badge variant="warning" className="ms-2 align-middle" title="Live weather couldn't be fetched; the fallback state was shown">
+                          weather failed
+                        </Badge>
+                      )}
                     </td>
                     <td className="px-3 py-2">{s.test_type ?? 'form'}</td>
                     <td className="px-3 py-2">{s.test_type === 'weather' ? s.condition_order : s.order_ab}</td>
@@ -504,7 +551,7 @@ function SessionList(props: {
                     </td>
                     <td className="px-3 py-2 tabular-nums">{new Date(s.created_at).toLocaleString()}</td>
                     <td className="px-3 py-2 tabular-nums">
-                      {s.started_at ? new Date(s.started_at).toLocaleTimeString() : '–'}
+                      {sessionStatus(s)}
                     </td>
                   </tr>
                 ))}
@@ -556,7 +603,7 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
     setBusy(format)
     setError(null)
     try {
-      downloadExport(await fetchExport([session.id]), `twin-${session.participant_code || session.id.slice(0, 8)}`, format, summariseForm)
+      downloadExport(await fetchExport([session.id]), `twin-${session.participant_code || session.id.slice(0, 8)}`, format, summarisers[testOf(session)])
     } catch (e) {
       setError(String((e as Error).message ?? e))
     }
@@ -574,7 +621,13 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
 
   return (
     <>
-    {!isWeather && <ResearcherScript status={status} connected={connected} />}
+    <ResearcherScript
+      status={status}
+      connected={connected}
+      steps={isWeather ? WEATHER_RESEARCHER_SCRIPT : undefined}
+      describeStatus={isWeather ? describeWeather : undefined}
+      getNextStep={isWeather ? (stepId, round) => nextWeatherStep(stepId, round, session.include_c ? 3 : 2) : undefined}
+    />
     <Card>
       <CardHeader>
         <CardTitle>
@@ -582,6 +635,11 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
           <Badge variant={connected ? 'success' : 'outline'} className="ms-1 align-middle">
             {connected ? 'live' : 'not connected'}
           </Badge>
+          {session.weather_failed && (
+            <Badge variant="warning" className="ms-1 align-middle">
+              weather fetch failed
+            </Badge>
+          )}
         </CardTitle>
         <CardDescription>
           {isWeather ? (
@@ -601,21 +659,35 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
       </CardHeader>
       <CardPanel className="flex flex-col gap-5">
         <LinkRow label="Participant link" href={participantLink(session.id)} />
-        <LinkRow label="Test link (10× fast, debug)" href={participantLink(session.id, '&fast=1&debug=1')} />
+        {isWeather
+          ? (
+            <a href={weatherPreview} target="_blank" rel="noreferrer" className="self-start font-medium text-sm underline underline-offset-4">
+              Preview Weather test (10× fast, debug)
+            </a>
+          )
+          : <LinkRow label="Test link (10× fast, debug)" href={participantLink(session.id, '&fast=1&debug=1')} />}
 
         <div className="grid gap-3 sm:grid-cols-4">
           <Stat label="Phase" value={connected ? status!.phase : '–'} />
           <Stat
-            label="Round"
-            value={connected && status!.round ? `${status!.round} · ${status!.form}` : '–'}
+            label={isWeather ? "Part" : "Round"}
+            value={
+              connected && status!.round
+                ? `${status!.round} · ${isWeather ? (status!.condition ?? '–') : status!.form}`
+                : '–'
+            }
           />
           <Stat
             label="Time"
-            value={inRound ? `${fmtTime(status!.t)} / ${fmtTime(ROUND_CONFIG.durationSec)}` : '–'}
+            value={
+              inRound
+                ? `${fmtTime(status!.t)} / ${fmtTime(isWeather ? WEATHER_CONFIG.conditionSec : ROUND_CONFIG.durationSec)}`
+                : '–'
+            }
           />
           <Stat label="Unsaved rows" value={connected ? String(status!.pending) : '–'} />
         </div>
-        {inRound && (
+        {inRound && !isWeather && (
           <div className="flex flex-col gap-2">
             <Meter label="Health" value={status!.health ?? 0} />
             <Meter label="Partner pulse" value={status!.pulse ?? 0} />
@@ -628,6 +700,20 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
           </div>
         )}
 
+        {isWeather && (
+          <div className="flex flex-col gap-2">
+            <h3 className="font-medium text-sm">Manual override (fallback only; logged as manual)</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start"
+              disabled={!inRound}
+              onClick={() => send('skip', 'End this condition now?')}
+            >
+              Skip condition
+            </Button>
+          </div>
+        )}
         {!isWeather && (
         <div className="flex flex-col gap-2">
           <h3 className="font-medium text-sm">Manual overrides (fallback only; logged as manual)</h3>
@@ -669,7 +755,7 @@ function SessionDetail({ session, onDeleted }: { session: SessionRow; onDeleted:
                   <span className="w-16 text-muted-foreground">R{e.round} {fmtTime(e.t_sec)}</span>
                   <span className="w-28 font-medium">{e.type}</span>
                   {e.duration_sec !== undefined && <span>{e.duration_sec.toFixed(1)} s</span>}
-                  <span className="ms-auto text-muted-foreground">health {e.health.toFixed(2)}</span>
+                  {!isWeather && <span className="ms-auto text-muted-foreground">health {e.health.toFixed(2)}</span>}
                 </li>
               ))}
             </ol>

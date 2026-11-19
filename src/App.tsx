@@ -7,11 +7,13 @@ import { Screen } from '@/shared/components/Screen'
 import { loadSessionConfig } from '@/shared/data/session'
 import { CompareView } from '@/tests/form/CompareView'
 import { FormTest } from '@/tests/form/FormTest'
+import { WeatherLab } from '@/tests/weather/WeatherLab'
 import { WeatherTest } from '@/tests/weather/WeatherTest'
 
 /**
  * Router:
- *  - `?admin=1` researcher panel, `?compare=1` plant/orb tuning view
+ *  - `?admin=1` researcher panel, `?compare=1` plant/orb tuning view,
+ *    `?lab=weather` weather look tuning (plant + debug panel, no session)
  *  - `?session=<id>` asks the database which test the session runs
  *  - `?test=weather` local Weather test preview (nothing saved)
  *  - anything else: the Form test, exactly as before
@@ -19,6 +21,7 @@ import { WeatherTest } from '@/tests/weather/WeatherTest'
 export default function App() {
   if (URL_PARAMS.admin) return <AdminApp />
   if (URL_PARAMS.compare) return <CompareView />
+  if (URL_PARAMS.lab) return <WeatherLab />
   if (URL_PARAMS.session) return <SessionRouter id={URL_PARAMS.session} />
   if (URL_PARAMS.test === 'weather') return <WeatherTest sessionId={null} config={PREVIEW_CONFIG} />
   return <FormTest />

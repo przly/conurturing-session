@@ -30,8 +30,19 @@ interface StartArgs {
   p_imagined: string | null
 }
 
+export interface WeatherStartArgs {
+  p_id: string
+  p_hometown_name: string | null
+  p_hometown_lat: number | null
+  p_hometown_lon: number | null
+  p_family_name: string | null
+}
+
+type StartRpc = 'start_session' | 'start_weather_session'
+
 type QueueItem =
-  | { kind: 'start'; args: StartArgs }
+  /** `rpc` is missing on items queued before the Weather test existed: those are 'start_session'. */
+  | { kind: 'start'; rpc?: StartRpc; args: StartArgs | WeatherStartArgs }
   | { kind: 'event'; row: EventRow }
   | { kind: 'answer'; row: AnswerRow }
 
@@ -46,7 +57,8 @@ const START_TIMEOUT_MS = 6000
  * Without Supabase configured, everything is kept locally for download.
  */
 export class SessionLogger {
-  readonly online = supabase !== null
+  /** False without Supabase, or for a local preview: nothing is sent. */
+  readonly online: boolean
   /** Everything logged this page load (for local download / debugging). */
   readonly archive: { events: EventRow[]; answers: AnswerRow[] } = { events: [], answers: [] }
   lastError: string | null = null
@@ -57,7 +69,8 @@ export class SessionLogger {
   private timer = 0
   private flushing = false
 
-  constructor(sessionId: string) {
+  constructor(sessionId: string, options: { local?: boolean } = {}) {
+    this.online = !options.local && supabase !== null
     this.storageKey = `twin-queue:${sessionId}`
     this.queue = this.load()
   }
@@ -76,7 +89,16 @@ export class SessionLogger {
    * offline / not configured). Retried in the background if it fails.
    */
   async startSession(args: StartArgs): Promise<Order | null> {
-    if (!supabase) return null
+    return (await this.register('start_session', args)) as Order | null
+  }
+
+  /** Weather test: stores hometown and family name on the (admin-created) session. */
+  async startWeatherSession(args: WeatherStartArgs): Promise<void> {
+    await this.register('start_weather_session', args)
+  }
+
+  private async register(rpc: StartRpc, args: StartArgs | WeatherStartArgs): Promise<unknown> {
+    if (!supabase || !this.online) return null
     // Background saving starts here (not in the constructor, so a discarded instance never runs).
     if (!this.timer) {
       this.timer = window.setInterval(() => void this.flush(), FLUSH_MS)
@@ -84,18 +106,18 @@ export class SessionLogger {
       void this.flush() // anything left over from a reload
     }
     try {
-      const call = supabase.rpc('start_session', args)
+      const call = supabase.rpc(rpc, args)
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('timeout')), START_TIMEOUT_MS),
       )
       const { data, error } = await Promise.race([call, timeout])
       if (error) throw error
-      return data as Order
+      return data
     } catch (error) {
-      console.warn('start_session failed; will retry in the background', error)
+      console.warn(`${rpc} failed; will retry in the background`, error)
       this.lastError = String((error as Error)?.message ?? error)
       // Must reach the database before any events (foreign key).
-      this.queue.unshift({ kind: 'start', args })
+      this.queue.unshift({ kind: 'start', rpc, args })
       this.save()
       return null
     }
@@ -124,7 +146,7 @@ export class SessionLogger {
       while (this.queue.length) {
         const first = this.queue[0]
         if (first.kind === 'start') {
-          const { error } = await supabase.rpc('start_session', first.args)
+          const { error } = await supabase.rpc(first.rpc ?? 'start_session', first.args)
           if (error) throw error
           this.queue.shift()
         } else {

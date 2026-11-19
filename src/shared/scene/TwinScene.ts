@@ -8,6 +8,14 @@ import type { Form } from '@/config'
 import type { TwinState } from '@/shared/scene/state'
 import { applyGlow, createBodyMaterial, createSharedMaterial, ExpressionDriver, type Expression } from './expression'
 import { createOrb, createPlant, type TwinForm } from './forms'
+import { VideoBackdrop, type VideoBackdropOptions } from './VideoBackdrop'
+import { WeatherLayer, type WeatherLook } from './weather'
+
+export interface TwinSceneOptions {
+  /** Weather test only: read every frame; null = no weather layer this frame. */
+  getWeather?: () => WeatherLook | null
+  backdrop?: VideoBackdropOptions
+}
 
 /** Dim, neutral room so the glow reads clearly and nothing hints at nature. */
 const BACKGROUND = '#0d0e11'
@@ -39,7 +47,10 @@ function createPoolTexture() {
 export class TwinScene {
   /** Latest eased expression (read by the debug overlay). */
   expression: Expression | null = null
+  /** Weather test only (null in the form test). */
+  readonly weather: WeatherLayer | null = null
 
+  private backdrop?: VideoBackdrop
   private renderer: THREE.WebGLRenderer
   private composer: EffectComposer
   private bloom: UnrealBloomPass
@@ -55,12 +66,14 @@ export class TwinScene {
   private resizeObserver: ResizeObserver
   private container: HTMLElement
   private getState: () => TwinState
+  private getWeather: (() => WeatherLook | null) | null
   private frame = 0
   private lastTime = performance.now()
 
-  constructor(container: HTMLElement, form: Form, getState: () => TwinState) {
+  constructor(container: HTMLElement, form: Form, getState: () => TwinState, options: TwinSceneOptions = {}) {
     this.container = container
     this.getState = getState
+    this.getWeather = options.getWeather ?? null
 
     // Throws if WebGL is unavailable; the React wrapper shows a text fallback.
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -85,11 +98,22 @@ export class TwinScene {
     this.camera.position.set(0, 1.15, 4.3)
     this.camera.lookAt(0, 0.8, 0)
 
+    if (options.backdrop) {
+      this.backdrop = new VideoBackdrop(options.backdrop)
+      this.camera.add(this.backdrop.mesh)
+      this.scene.add(this.camera)
+      this.disposables.push(this.backdrop)
+    }
     this.addStage()
 
     this.form = form === 'plant' ? createPlant(this.material, this.bodyMaterial) : createOrb(this.material)
     this.scene.add(this.form.root)
     this.disposables.push(this.form)
+
+    if (this.getWeather) {
+      this.weather = new WeatherLayer(this.scene, this.scene.background as THREE.Color, this.scene.fog as THREE.Fog)
+      this.disposables.push(this.weather)
+    }
 
     this.composer = new EffectComposer(this.renderer)
     this.composer.addPass(new RenderPass(this.scene, this.camera))
@@ -154,6 +178,13 @@ export class TwinScene {
     const e = this.driver.update(this.getState(), dt)
     this.expression = e
     applyGlow(this.material, this.bodyMaterial, this.poolMaterial, e)
+    if (this.weather) {
+      // Colour and texture only, applied on top of the shared glow; the pose below is untouched.
+      const targets = { material: this.material, body: this.bodyMaterial, pool: this.poolMaterial, scene: this.scene }
+      const exposure = this.weather.apply(this.getWeather!(), targets, dt)
+      this.renderer.toneMappingExposure = EXPOSURE * exposure
+    }
+    this.backdrop?.update(this.camera, this.container.clientWidth)
     this.form.update(e)
     this.composer.render()
   }
