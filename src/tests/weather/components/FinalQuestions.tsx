@@ -45,7 +45,7 @@ export function FinalQuestions({ conditions, onSubmit }: FinalQuestionsProps) {
           className="grid gap-2.5 sm:grid-cols-3"
         >
           {conditions.map((condition, index) => (
-            <label key={condition} className="flex cursor-pointer items-center gap-2 rounded-lg border p-3 hover:bg-accent/50 has-data-checked:bg-accent">
+            <label key={condition} className="group/answer flex cursor-pointer items-center gap-2 rounded-lg border p-3 hover:bg-accent/50 has-data-checked:bg-accent">
               <Radio value={String(index + 1)} />
               {copy.version(index + 1)}
             </label>

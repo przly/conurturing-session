@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { PRESENTATION, URL_PARAMS, type Form } from '@/config'
+import { PRESENTATION, ROUND_CONFIG, URL_PARAMS, type Form } from '@/config'
+import { RoundCountdown } from '@/shared/components/RoundCountdown'
 import { TwinCanvas } from '@/shared/components/TwinCanvas'
 import { DebugOverlay } from '@/tests/form/components/DebugOverlay'
 import type { TwinScene } from '@/shared/scene/TwinScene'
@@ -13,7 +14,7 @@ interface RoundStageProps {
   onFadedOut: () => void
 }
 
-/** Full-screen round: just the object. No text, timers or bars. */
+/** Full-screen round with the object and a countdown. */
 export function RoundStage({ session, form, ending, onFadedOut }: RoundStageProps) {
   const [visible, setVisible] = useState(false)
   const [scene, setScene] = useState<TwinScene | null>(null)
@@ -41,6 +42,7 @@ export function RoundStage({ session, form, ending, onFadedOut }: RoundStageProp
         onScene={setScene}
         style={{ opacity: visible ? 1 : 0, transition: `opacity ${fade}s ease-in-out` }}
       />
+      <RoundCountdown ending={ending} readRemaining={() => ROUND_CONFIG.durationSec - (session.runner?.t ?? 0)} />
       {URL_PARAMS.debug && (
         <div className="cursor-auto">
           <DebugOverlay session={session} scene={scene} />

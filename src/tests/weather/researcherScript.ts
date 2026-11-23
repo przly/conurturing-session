@@ -19,7 +19,7 @@ export const WEATHER_RESEARCHER_SCRIPT: ScriptStep[] = [
     id: 'intro',
     title: 'Watch the introduction',
     when: 'While the introduction loads',
-    say: ['Please watch the video. Press Continue when it ends.'],
+    say: ['You can watch the introduction or skip it. If you watch to the end, press Continue.'],
     match: { phases: ['intro'] },
   },
   {

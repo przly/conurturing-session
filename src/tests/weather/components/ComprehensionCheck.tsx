@@ -34,7 +34,7 @@ export function ComprehensionCheck({ options, onAnswer, onReplay, onContinue }: 
           className="grid gap-2.5"
         >
           {options.map((option) => (
-            <label key={option.id} className="flex items-center gap-2 rounded-lg border p-3 has-data-checked:bg-accent">
+            <label key={option.id} className="group/answer flex items-center gap-2 rounded-lg border p-3 not-has-data-disabled:cursor-pointer not-has-data-disabled:hover:bg-accent/50 has-data-checked:bg-accent">
               <Radio value={option.id} />
               {option.label}
             </label>

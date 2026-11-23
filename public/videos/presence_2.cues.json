@@ -2,49 +2,99 @@
   {
     "t": 8,
     "event": "pass",
-    "x": 0.54
+    "x": 0.54,
+    "motion": {
+      "from": -0.10999999999999999,
+      "to": 1.19,
+      "seconds": 4
+    }
   },
   {
     "t": 27,
     "event": "enter",
-    "x": 0.76
+    "x": 0.76,
+    "motion": {
+      "from": 1.2,
+      "to": 0.76,
+      "seconds": 3
+    }
   },
   {
     "t": 50,
     "event": "move",
-    "x": 0.67
+    "x": 0.5,
+    "motion": {
+      "from": 0.76,
+      "to": 0.5,
+      "seconds": 2
+    }
+  },
+  {
+    "t": 52,
+    "event": "behind",
+    "x": 0.5
   },
   {
     "t": 64,
     "event": "still",
-    "x": 0.67
+    "x": 0.5
   },
   {
     "t": 109,
-    "event": "leave"
+    "event": "leave",
+    "motion": {
+      "from": 0.5,
+      "to": 1.2,
+      "seconds": 3
+    }
   },
   {
     "t": 143,
     "event": "pass",
-    "x": 0.48
+    "x": 0.48,
+    "motion": {
+      "from": -0.17000000000000004,
+      "to": 1.13,
+      "seconds": 4
+    }
   },
   {
     "t": 178,
     "event": "enter",
-    "x": 0.21
+    "x": 0.21,
+    "motion": {
+      "from": -0.2,
+      "to": 0.21000000000000002,
+      "seconds": 3
+    }
   },
   {
     "t": 207,
     "event": "move",
-    "x": 0.31
+    "x": 0.5,
+    "motion": {
+      "from": 0.21000000000000002,
+      "to": 0.5,
+      "seconds": 2
+    }
+  },
+  {
+    "t": 209,
+    "event": "behind",
+    "x": 0.5
   },
   {
     "t": 231,
     "event": "still",
-    "x": 0.31
+    "x": 0.5
   },
   {
     "t": 262,
-    "event": "leave"
+    "event": "leave",
+    "motion": {
+      "from": 0.5,
+      "to": 1.2,
+      "seconds": 3
+    }
   }
 ]

@@ -157,7 +157,7 @@ export function StartScreen({ onStart }: { onStart: (details: StartDetails) => P
           <AlertDescription>{START_TEXT.noMic}</AlertDescription>
         </Alert>
 
-        <label className="flex items-start gap-3 text-sm">
+        <label className="group/answer flex cursor-pointer items-start gap-3 text-sm">
           <Checkbox
             checked={consent}
             onCheckedChange={(checked) => setConsent(checked === true)}

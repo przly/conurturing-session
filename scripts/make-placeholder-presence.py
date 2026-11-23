@@ -8,19 +8,20 @@ from PIL import Image, ImageDraw, ImageFilter
 
 OUT = Path(__file__).resolve().parents[1] / "public" / "videos"
 WIDTH, HEIGHT, FPS = 320, 180, 12
+MOTION_SECONDS = {"enter": 3, "move": 2, "leave": 3, "pass": 4}
 
 PERFORMANCES = {
     1: (456, [
-        (12, "enter", .20), (18.5, "move", .32), (45, "still", .32),
+        (12, "enter", .20), (18.5, "move", .50), (20.5, "behind", .50), (45, "still", .50),
         (92, "leave", None), (150, "pass", .50),
-        (185, "enter", .78), (204, "move", .68), (235, "still", .68),
+        (185, "enter", .78), (204, "move", .50), (206, "behind", .50), (235, "still", .50),
         (278, "leave", None), (334, "pass", .48),
-        (374, "enter", .22), (391, "still", .22), (427, "leave", None),
+        (374, "enter", .22), (382, "move", .50), (384, "behind", .50), (391, "still", .50), (427, "leave", None),
     ]),
     2: (306, [
-        (8, "pass", .54), (27, "enter", .76), (50, "move", .67),
-        (64, "still", .67), (109, "leave", None), (143, "pass", .48),
-        (178, "enter", .21), (207, "move", .31), (231, "still", .31),
+        (8, "pass", .54), (27, "enter", .76), (50, "move", .50), (52, "behind", .50),
+        (64, "still", .50), (109, "leave", None), (143, "pass", .48),
+        (178, "enter", .21), (207, "move", .50), (209, "behind", .50), (231, "still", .50),
         (262, "leave", None),
     ]),
 }
@@ -39,27 +40,35 @@ def pose(track, time):
         since = time - t
         if event == "enter":
             edge = -.20 if target < .5 else 1.2
-            x, opacity = edge + (target - edge) * smooth(since / 3), 1
+            x, opacity = edge + (target - edge) * smooth(since / MOTION_SECONDS[event]), 1
         elif event == "move":
-            x += (target - x) * smooth(since / 2)
+            x += (target - x) * smooth(since / MOTION_SECONDS[event])
         elif event == "still":
             x = target
         elif event == "leave":
             edge = -.20 if x < .5 else 1.2
-            x += (edge - x) * smooth(since / 3)
-            opacity *= 1 - smooth(since / 3)
-        elif event == "pass" and since < 4:
-            x = target - .65 + 1.3 * smooth(since / 4)
+            x += (edge - x) * smooth(since / MOTION_SECONDS[event])
+            opacity *= 1 - smooth(since / MOTION_SECONDS[event])
+        elif event == "pass" and since < MOTION_SECONDS[event]:
+            x = target - .65 + 1.3 * smooth(since / MOTION_SECONDS[event])
             opacity = .9
     return x, opacity
 
 
 def make_clip(clip, duration, track):
     path = OUT / f"presence_{clip}"
-    path.with_suffix(".cues.json").write_text(json.dumps([
-        {"t": t, "event": event, **({"x": x} if x is not None else {})}
-        for t, event, x in track
-    ], indent=2) + "\n")
+    cues = []
+    for t, event, x in track:
+        cue = {"t": t, "event": event}
+        if x is not None:
+            cue["x"] = x
+        if event in MOTION_SECONDS:
+            seconds = MOTION_SECONDS[event]
+            start, _ = pose(track, t)
+            end = x + .65 if event == "pass" else pose(track, t + seconds)[0]
+            cue["motion"] = {"from": start, "to": end, "seconds": seconds}
+        cues.append(cue)
+    path.with_suffix(".cues.json").write_text(json.dumps(cues, indent=2) + "\n")
     room = Image.new("L", (WIDTH, HEIGHT), 16)
     draw = ImageDraw.Draw(room)
     draw.rectangle((30, 14, 290, 166), fill=26)

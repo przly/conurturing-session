@@ -15,7 +15,7 @@ import { LOOK, lerp, type Expression } from './expression'
  */
 export interface TwinForm {
   root: THREE.Group
-  update: (e: Expression) => void
+  update: (e: Expression, weather?: { rain: number; snow: number; lightning: number }) => void
   dispose: () => void
 }
 
@@ -97,18 +97,46 @@ const PLANT = {
 }
 
 /** Unit-length petal in the XZ plane pointing along +X: rounded tip, cupped upward. */
-function createPetalGeometry() {
-  const shape = new THREE.Shape()
-  shape.moveTo(0, 0)
-  shape.bezierCurveTo(0.15, 0.32, 0.85, 0.42, 1, 0)
-  shape.bezierCurveTo(0.85, -0.42, 0.15, -0.32, 0, 0)
-  const geometry = new THREE.ShapeGeometry(shape, 16)
-  const pos = geometry.attributes.position
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i)
-    const w = pos.getY(i)
-    pos.setXYZ(i, x, 0.9 * w * w + 0.12 * x * x, w)
+function createPetalGeometry(petalWidthScale: number) {
+  const lengthSegments = 24
+  const widthSegments = 12
+  const stride = widthSegments + 1
+  const positions = [0, 0, 0]
+  const uvs = [0, 0.5]
+  const indices: number[] = []
+
+  for (let row = 1; row < lengthSegments; row++) {
+    const angle = Math.PI * row / lengthSegments
+    const x = (1 - Math.cos(angle)) / 2
+    const profile = Math.sin(angle)
+    const halfWidth = profile * (0.20 + 0.15 * x) * petalWidthScale
+    const curl = 0.09 * x * x + 0.075 * x ** 6
+    for (let col = 0; col <= widthSegments; col++) {
+      const side = 2 * col / widthSegments - 1
+      const cup = 0.085 * profile * side * side
+      const crease = 0.027 * profile * Math.exp(-22 * side * side)
+      const twist = 0.033 * x * profile * side
+      positions.push(x, curl + cup - crease + twist, side * halfWidth)
+      uvs.push(x, col / widthSegments)
+    }
   }
+
+  const tip = positions.length / 3
+  positions.push(1, 0.165, 0)
+  uvs.push(1, 0.5)
+  for (let col = 0; col < widthSegments; col++) {
+    indices.push(0, col + 2, col + 1)
+    for (let row = 0; row < lengthSegments - 2; row++) {
+      const a = 1 + row * stride + col
+      indices.push(a, a + 1, a + stride, a + 1, a + stride + 1, a + stride)
+    }
+    const last = tip - stride + col
+    indices.push(last, last + 1, tip)
+  }
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+  geometry.setIndex(indices)
   geometry.computeVertexNormals()
   return geometry
 }
@@ -133,8 +161,24 @@ function createLeafGeometry() {
   return geometry
 }
 
-/** `material` glows (the petals only); `foliage` is the green, non-glowing stem, leaves and flower centre. */
-export function createPlant(material: THREE.Material, foliage: THREE.Material): TwinForm {
+/** The Form plant uses glowing petals. A separate petal material moves the glow to the centre. */
+export function createPlant(
+  glow: THREE.Material,
+  foliage: THREE.Material,
+  { mattePetals, weatherLeaves, leafCount = PLANT.leaves.length, leafWidthScale = 1, leafRotationOffset = 0, stemRadiusScale = 1, closedCenterLift = 0, centerScale = 1, petalWidthScale = 1, petalDrop = 0, closedPetalCurl = 0 }: {
+    mattePetals?: THREE.Material
+    weatherLeaves?: THREE.Material
+    leafCount?: number
+    leafWidthScale?: number
+    leafRotationOffset?: number
+    stemRadiusScale?: number
+    closedCenterLift?: number
+    centerScale?: number
+    petalWidthScale?: number
+    petalDrop?: number
+    closedPetalCurl?: number
+  } = {},
+): TwinForm {
   const geometries: THREE.BufferGeometry[] = []
   const track = <T extends THREE.BufferGeometry>(g: T) => (geometries.push(g), g)
 
@@ -143,7 +187,8 @@ export function createPlant(material: THREE.Material, foliage: THREE.Material): 
   root.add(body)
 
   const leafGeometry = track(createLeafGeometry())
-  const jointGeometry = track(new THREE.SphereGeometry(PLANT.stemRadius, 12, 8))
+  const stemRadius = PLANT.stemRadius * stemRadiusScale
+  const jointGeometry = track(new THREE.SphereGeometry(stemRadius, 12, 8))
 
   // Articulated stem: each segment is nested in the previous, so bending the joints droops the top.
   const joints: THREE.Group[] = []
@@ -153,7 +198,7 @@ export function createPlant(material: THREE.Material, foliage: THREE.Material): 
     const joint = new THREE.Group()
     joint.position.y = offset
     parent.add(joint)
-    const segment = track(new THREE.CylinderGeometry(PLANT.stemRadius * 0.85, PLANT.stemRadius, length, 12))
+    const segment = track(new THREE.CylinderGeometry(stemRadius * 0.85, stemRadius, length, 12))
     segment.translate(0, length / 2, 0)
     joint.add(new THREE.Mesh(segment, foliage))
     joint.add(new THREE.Mesh(jointGeometry, foliage))
@@ -164,73 +209,137 @@ export function createPlant(material: THREE.Material, foliage: THREE.Material): 
   const totalHeight = PLANT.segments.reduce((a, b) => a + b, 0)
 
   // Leaves, spiralling round the stem (golden angle) so none hides another.
-  const leaves = PLANT.leaves.map(([segmentIndex, height, length], i) => {
+  const leaves = PLANT.leaves.slice(0, leafCount).map(([segmentIndex, height, length], i) => {
     const azimuth = new THREE.Group()
     azimuth.position.y = height
-    azimuth.rotation.y = 0.6 + i * 137.5 * DEG
+    azimuth.rotation.y = 0.6 + (i * 137.5 + leafRotationOffset) * DEG
     joints[segmentIndex].add(azimuth)
     const elevation = new THREE.Group()
     azimuth.add(elevation)
-    const blade = new THREE.Mesh(leafGeometry, foliage)
+    const blade = new THREE.Mesh(leafGeometry, weatherLeaves ?? foliage)
     blade.scale.setScalar(length)
     elevation.add(blade)
     return { elevation, blade, length, phase: i * 1.1 }
   })
 
-  // Flower on top: green centre, glowing orange petals that open with health and close into a bud.
+  // Flower on top, with petals that open with health and close into a bud.
   const head = new THREE.Group()
   head.position.y = PLANT.segments[PLANT.segments.length - 1]
   head.rotation.x = PLANT.headTiltDeg * DEG
   joints[joints.length - 1].add(head)
-  const centerGeometry = track(new THREE.SphereGeometry(PLANT.centerRadius, 24, 16))
-  const center = new THREE.Mesh(centerGeometry, foliage)
+  const centerGeometry = track(new THREE.SphereGeometry(PLANT.centerRadius * centerScale, 24, 16))
+  const center = new THREE.Mesh(centerGeometry, mattePetals ? glow : foliage)
   center.scale.set(1, 0.8, 1)
   head.add(center)
-  const petalGeometry = track(createPetalGeometry())
+  const petalGeometry = track(createPetalGeometry(petalWidthScale))
+  const petalPositions = petalGeometry.getAttribute('position')
+  const openPetalPositions = closedPetalCurl ? petalPositions.clone() : null
+  let lastCurl = 0
+  const petalCurvature = [1.1, 0.86, 1.05, 0.93, 1.16, 0.9]
   const petals = Array.from({ length: PLANT.petals }, (_, i) => {
     const azimuth = new THREE.Group()
     azimuth.rotation.y = (i / PLANT.petals) * Math.PI * 2
     head.add(azimuth)
     const elevation = new THREE.Group()
-    elevation.position.x = PLANT.centerRadius * 0.5
+    elevation.position.set(PLANT.centerRadius * centerScale * 0.5, -petalDrop, 0)
     azimuth.add(elevation)
-    const petal = new THREE.Mesh(petalGeometry, material)
+    const petal = new THREE.Mesh(petalGeometry, mattePetals ?? glow)
     petal.scale.setScalar(PLANT.petalLength)
+    if (mattePetals) {
+      petal.scale.y *= petalCurvature[i]
+      petal.rotation.x = (petalCurvature[i] - 1) * 0.42
+    }
     elevation.add(petal)
-    return { elevation, phase: i * 0.9 }
+    return { elevation, phase: i * 0.9, lastDrop: -Infinity }
   })
 
+  let nextDrop = 0
+  let previousPetal = -1
+  let startleTarget = 0
+  let startle = 0
+  let lastTime = 0
   const leanAngle = Math.atan(LOOK.leanAmount / totalHeight)
 
   return {
     root,
-    update(e) {
-      const o = e.openness
+    update(e, weather) {
+      const rain = weather?.rain ?? 0
+      const snow = weather?.snow ?? 0
+      const elapsed = e.time - lastTime
+      lastTime = e.time
+      startleTarget = Math.max(weather?.lightning ?? 0, startleTarget * Math.exp(-1.8 * elapsed))
+      startle = THREE.MathUtils.damp(startle, startleTarget, 6, elapsed)
+      const presence = e.headOpenness !== undefined
+      const bodyOpenness = presence ? 1 : e.openness
+      const petalOpenness = (e.headOpenness ?? e.openness) * (1 - 0.45 * startle)
+      if (closedCenterLift) center.position.y = closedCenterLift * (1 - petalOpenness)
+      if (openPetalPositions) {
+        const reveal = THREE.MathUtils.smoothstep(petalOpenness, 0.06, 0.4)
+        center.visible = reveal > 0
+        center.scale.set(reveal, 0.8 * reveal, reveal)
+        const curl = closedPetalCurl * (1 - petalOpenness) ** 2
+        if (curl !== lastCurl) {
+          for (let i = 0; i < petalPositions.count; i++) {
+            const x = openPetalPositions.getX(i)
+            const y = openPetalPositions.getY(i)
+            const z = openPetalPositions.getZ(i)
+            const angle = curl * x
+            // Bend along the petal's length, with increasing curl toward the tip.
+            petalPositions.setXYZ(i, curl ? Math.sin(angle) / curl : x, y + (curl ? (1 - Math.cos(angle)) / curl : 0), z)
+          }
+          petalPositions.needsUpdate = true
+          petalGeometry.computeVertexNormals()
+          lastCurl = curl
+        }
+      }
+      const idle = presence ? 0 : e.idle
+      const pulse = presence ? 0 : e.pulse
       // Lean toward the camera while listening; tiny idle sway.
       body.rotation.x = e.lean * leanAngle
-      body.rotation.z = e.idle * PLANT.idleSwayDeg * DEG - (e.leanX ?? 0)
+      body.rotation.z = idle * PLANT.idleSwayDeg * DEG
 
       // Stem droops sideways as health drops.
-      const bend = lerp(PLANT.droopDeg, PLANT.healthyBendDeg, e.preventDroop ? 1 : o) * DEG
+      const bend = lerp(PLANT.droopDeg, PLANT.healthyBendDeg, bodyOpenness) * DEG
       joints.forEach((joint, i) => (joint.rotation.z = i === 0 ? bend * 0.4 : bend))
 
       for (const leaf of leaves) {
         // Same peak tip displacement as the orb's pulse bob.
         const pulseAngle = Math.asin(Math.min(1, LOOK.pulseAmplitude / leaf.length))
-        const wave = Math.sin(e.time * Math.PI * 2 * LOOK.pulseHz + leaf.phase) * e.pulse
-        const rest = lerp(PLANT.leafDroopDeg, PLANT.leafOpenDeg, o) * DEG + e.idle * PLANT.leafIdleDeg * DEG + wave * pulseAngle
+        const wave = Math.sin(e.time * Math.PI * 2 * LOOK.pulseHz + leaf.phase) * pulse
+        const rest = lerp(PLANT.leafDroopDeg, PLANT.leafOpenDeg, bodyOpenness) * DEG + idle * PLANT.leafIdleDeg * DEG + wave * pulseAngle
         // The louder the voice, the closer the leaf gets to perpendicular with the stem (0° elevation).
         leaf.elevation.rotation.z = lerp(rest, 0, e.voice * PLANT.leafVoiceAmount)
-        leaf.blade.scale.z = leaf.length * lerp(PLANT.leafClosedWidth, 1, o)
+        leaf.blade.scale.z = leaf.length * leafWidthScale * lerp(PLANT.leafClosedWidth, 1, bodyOpenness)
       }
 
       // Petals open as health rises and close into a bud as it fades; they flutter on a pulse.
-      for (const petal of petals) {
-        const wave = Math.sin(e.time * Math.PI * 2 * LOOK.pulseHz + petal.phase) * e.pulse
-        petal.elevation.rotation.z =
-          (lerp(PLANT.petalClosedDeg, PLANT.petalOpenDeg, o) + wave * PLANT.petalPulseDeg + e.idle * 2) * DEG
+      if (rain > 0 && e.time >= nextDrop) {
+        const choices = previousPetal < 0 ? petals.length : petals.length - 1
+        const choice = Math.floor(Math.random() * choices)
+        const index = previousPetal >= 0 && choice >= previousPetal ? choice + 1 : choice
+        petals[index].lastDrop = e.time
+        previousPetal = index
+        nextDrop = e.time + THREE.MathUtils.randFloat(0.45, 0.95)
       }
-      head.scale.setScalar(lerp(PLANT.headMinScale, 1, o))
+      const shiverDuration = 4 / 3
+      const shiverPhase = Math.min((e.time % 3) / shiverDuration, 1)
+      const shiverBurst = snow * Math.sin(shiverPhase * Math.PI) ** 3
+      const shiverBeat = shiverPhase * shiverDuration * Math.PI * 12
+      const tremble = shiverBurst * (0.72 + 0.28 * Math.cos(shiverBeat / 3))
+      const coldTuck = 7 * petalOpenness * shiverBurst
+      head.rotation.x = (PLANT.headTiltDeg + 10 * startle) * DEG
+      head.rotation.z = (0.8 * tremble * Math.sin(shiverBeat) - 6 * startle) * DEG
+      for (const petal of petals) {
+        const wave = Math.sin(e.time * Math.PI * 2 * LOOK.pulseHz + petal.phase) * pulse
+        const sinceDrop = e.time - petal.lastDrop
+        const dip = THREE.MathUtils.smoothstep(sinceDrop, 0, 0.16)
+        const recovery = 1 - THREE.MathUtils.smoothstep(sinceDrop, 0.16, 0.85)
+        const rainDip = 5 * rain * petalOpenness * dip * recovery
+        const shiver = coldTuck + 2.5 * tremble * Math.sin(shiverBeat + petal.phase * 0.25)
+        petal.elevation.rotation.z =
+          (lerp(PLANT.petalClosedDeg, PLANT.petalOpenDeg, petalOpenness) + wave * PLANT.petalPulseDeg + idle * 2 - rainDip + shiver) * DEG
+      }
+      head.scale.setScalar(lerp(PLANT.headMinScale, 1, bodyOpenness))
     },
     dispose: () => geometries.forEach((g) => g.dispose()),
   }

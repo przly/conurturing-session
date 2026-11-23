@@ -23,8 +23,9 @@ const pct = (x: number) => `${Math.round(x * 100)}%`
  */
 export function WeatherDebugPanel({ weather, session, scene, presence }: WeatherDebugPanelProps) {
   const [, setTick] = useState(0)
-  const [instant, setInstant] = useState(false)
+  const [instant, setInstant] = useState(session === null)
   const [open, setOpen] = useState(true)
+  const [positionOverride, setPositionOverride] = useState<number | null>(null)
 
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 100)
@@ -41,7 +42,7 @@ export function WeatherDebugPanel({ weather, session, scene, presence }: Weather
   const total = session?.conditions.length ?? 0
 
   return (
-    <div className="pointer-events-auto fixed top-3 left-3 z-50 w-72 cursor-auto rounded-lg border border-white/10 bg-black/75 p-3 font-mono text-[11px] text-white/90 leading-relaxed backdrop-blur">
+    <div className="pointer-events-auto fixed top-3 right-3 z-50 w-72 cursor-auto rounded-lg border border-white/10 bg-black/75 p-3 font-mono text-[11px] text-white/90 leading-relaxed backdrop-blur">
       <button type="button" className="mb-1 flex w-full justify-between font-semibold" onClick={() => setOpen(!open)}>
         <span>WEATHER DEBUG {SPEED > 1 && `· ${SPEED}× fast`}</span>
         <span>{session ? session.phase : 'lab'} {open ? '▾' : '▸'}</span>
@@ -56,7 +57,7 @@ export function WeatherDebugPanel({ weather, session, scene, presence }: Weather
               </Row>
               <Row label="order">{session.conditions.join(' → ')}</Row>
               <Row label="clip">
-                {position ? `${session.clipAt(position)} from ${session.clipOffsetAt(position)} s` : '–'}
+                {session.track ? `${WEATHER_CONFIG.presence.recording} from ${session.track.offset} s` : '–'}
               </Row>
               <Row label="time">
                 {clock ? `${formatClock(clock.t)} / ${formatClock(clock.durationSec)}` : '–'}
@@ -148,6 +149,33 @@ export function WeatherDebugPanel({ weather, session, scene, presence }: Weather
               <Row label="cue">{presence.track.latest?.event ?? '–'}</Row>
               <Row label="state">{presence.mode}</Row>
               <Row label="x">{presence.x.toFixed(2)}</Row>
+              <Row label="petals">{pct(presence.openness)} open</Row>
+              {!session && (
+                <div className="my-2 grid gap-1">
+                  <label>
+                    Presence position
+                    <input
+                      aria-valuetext={positionOverride === null ? 'Clip playback' : `${positionOverride}% from the left`}
+                      className="block w-full accent-amber-300"
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={positionOverride ?? 50}
+                      onChange={(event) => {
+                        const value = Number(event.target.value)
+                        presence.previewPosition = value / 100
+                        setPositionOverride(value)
+                      }}
+                    />
+                  </label>
+                  {positionOverride !== null && (
+                    <DebugButton onClick={() => {
+                      presence.previewPosition = null
+                      setPositionOverride(null)
+                    }}>Use clip</DebugButton>
+                  )}
+                </div>
+              )}
               <Row label="video">{presence.track.clip} · {presence.track.video.currentTime.toFixed(2)} s</Row>
             </>
           ) : <Row label="state">–</Row>}

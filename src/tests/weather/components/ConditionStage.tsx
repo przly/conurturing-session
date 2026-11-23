@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PRESENTATION, URL_PARAMS, WEATHER_CONFIG } from '@/config'
+import { RoundCountdown } from '@/shared/components/RoundCountdown'
 import { TwinCanvas } from '@/shared/components/TwinCanvas'
 import type { TwinScene } from '@/shared/scene/TwinScene'
 import { PresenceDriver } from '../presence/PresenceDriver'
@@ -8,13 +9,14 @@ import { WeatherDebugPanel } from './WeatherDebugPanel'
 
 interface ConditionStageProps {
   session: WeatherSession
+  hideBackdrop?: boolean
   /** True once the condition has ended; triggers the fade out. */
   ending: boolean
   onFadedOut: () => void
 }
 
-/** Full-screen condition: just the plant. No text, timers or controls. */
-export function ConditionStage({ session, ending, onFadedOut }: ConditionStageProps) {
+/** Full-screen condition with the plant and a countdown. */
+export function ConditionStage({ session, hideBackdrop = false, ending, onFadedOut }: ConditionStageProps) {
   const [presence] = useState(() => new PresenceDriver(session.track!))
   const [backdrop] = useState(() => ({ video: presence.track.video, ...WEATHER_CONFIG.presence }))
   const [visible, setVisible] = useState(false)
@@ -43,11 +45,13 @@ export function ConditionStage({ session, ending, onFadedOut }: ConditionStagePr
       <TwinCanvas
         form="plant"
         getState={presence.read}
-        backdrop={backdrop}
+        floorDepthRadius={WEATHER_CONFIG.presence.floorDepthRadius}
+        backdrop={hideBackdrop ? undefined : backdrop}
         getWeather={session.weather.look}
         onScene={setScene}
         style={{ opacity: visible ? 1 : 0, transition: `opacity ${fade}s ease-in-out` }}
       />
+      <RoundCountdown ending={ending} readRemaining={() => session.clock?.remainingSec ?? WEATHER_CONFIG.conditionSec} />
       {URL_PARAMS.debug && <WeatherDebugPanel weather={session.weather} session={session} scene={scene} presence={presence} />}
     </div>
   )

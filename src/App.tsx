@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { AdminApp } from '@/AdminApp'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { clipsFor, URL_PARAMS, WEATHER_CONFIG, type SessionConfig } from '@/config'
+import { clipsFor, URL_PARAMS, type SessionConfig } from '@/config'
 import { Screen } from '@/shared/components/Screen'
 import { loadSessionConfig } from '@/shared/data/session'
 import { CompareView } from '@/tests/form/CompareView'
 import { FormTest } from '@/tests/form/FormTest'
+import { IntroPreview } from '@/tests/weather/IntroPreview'
+import { PresenceTest } from '@/tests/weather/PresenceTest'
 import { WeatherLab } from '@/tests/weather/WeatherLab'
 import { WeatherTest } from '@/tests/weather/WeatherTest'
 
@@ -16,6 +18,7 @@ import { WeatherTest } from '@/tests/weather/WeatherTest'
  *    `?lab=weather` weather look tuning (plant + debug panel, no session)
  *  - `?session=<id>` asks the database which test the session runs
  *  - `?test=weather` local Weather test preview (nothing saved)
+ *  - `?test=intro` only the Weather test intro
  *  - anything else: the Form test, exactly as before
  */
 export default function App() {
@@ -23,6 +26,8 @@ export default function App() {
   if (URL_PARAMS.compare) return <CompareView />
   if (URL_PARAMS.lab) return <WeatherLab />
   if (URL_PARAMS.session) return <SessionRouter id={URL_PARAMS.session} />
+  if (URL_PARAMS.presenceTest) return <PresenceTest />
+  if (URL_PARAMS.introPreview) return <IntroPreview />
   if (URL_PARAMS.test === 'weather') return <WeatherTest sessionId={null} config={PREVIEW_CONFIG} />
   return <FormTest />
 }
@@ -32,8 +37,8 @@ const PREVIEW_CONFIG: SessionConfig = {
   test_type: 'weather',
   order_ab: null,
   condition_order: URL_PARAMS.conditions ?? ['A', 'B', 'C'],
-  clip_assignment: clipsFor(false, (URL_PARAMS.conditions ?? ['A', 'B', 'C']).length),
-  clip3_offset_sec: WEATHER_CONFIG.clip3OffsetSec,
+  clip_assignment: clipsFor((URL_PARAMS.conditions ?? ['A', 'B', 'C']).length),
+  clip3_offset_sec: 0,
   include_c: (URL_PARAMS.conditions ?? ['C']).includes('C'),
 }
 

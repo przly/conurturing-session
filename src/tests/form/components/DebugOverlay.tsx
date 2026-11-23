@@ -49,7 +49,7 @@ export function DebugOverlay({ session, scene }: DebugOverlayProps) {
   const e = scene?.expression
 
   return (
-    <div className="pointer-events-auto fixed top-3 left-3 z-50 w-64 rounded-lg border border-white/10 bg-black/75 p-3 font-mono text-[11px] text-white/90 leading-relaxed backdrop-blur">
+    <div className="pointer-events-auto fixed top-3 right-3 z-50 w-64 rounded-lg border border-white/10 bg-black/75 p-3 font-mono text-[11px] text-white/90 leading-relaxed backdrop-blur">
       <div className="mb-1 flex justify-between font-semibold">
         <span>DEBUG {SPEED > 1 && `· ${SPEED}× fast`}</span>
         <span>{session.phase}</span>

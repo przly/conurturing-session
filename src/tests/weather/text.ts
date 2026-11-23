@@ -51,14 +51,16 @@ export const START_TEXT = {
 }
 
 export const STUDY_TEXT = {
+  skipIntro: 'Skip intro',
+  playIntro: 'Play intro',
   introTitle: 'Introduction',
-  introError: 'The introduction could not play. Try loading it again.',
+  introError: 'The introduction could not load. You can try again or skip it.',
   retry: 'Try again',
   continue: 'Continue',
   checkTitle: 'Quick question',
   checkQuestion: 'What happens to your family’s plant when you walk into your room?',
   checkExplanation: 'When you walk into your room, your family’s plant wakes up and glows.',
-  replay: 'Replay the clip',
+  replay: 'Watch the intro again',
   checkOptions: [
     { id: 'glow', label: 'It wakes up and glows' },
     { id: 'nothing', label: 'Nothing happens' },
@@ -66,7 +68,7 @@ export const STUDY_TEXT = {
     { id: 'off', label: 'It turns off' },
   ],
   part: (position: number, total: number) => `Part ${position} of ${total}`,
-  watch: (minutes: number) => `When you press Begin, the plant will appear for about ${minutes} minutes. Just watch. You don’t need to do anything.`,
+  watch: (minutes: number) => `When you press Begin, the plant will appear for about ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}. Just watch. You don’t need to do anything.`,
   begin: 'Begin',
   presenceError: 'The shadow video could not play. Try loading it again.',
   surveyTitle: (position: number) => `Questions about part ${position}`,

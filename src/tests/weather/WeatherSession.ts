@@ -2,7 +2,6 @@ import {
   SPEED,
   URL_PARAMS,
   WEATHER_CONFIG,
-  type ClipNumber,
   type SessionConfig,
   type WeatherCondition,
   type WeatherState,
@@ -105,15 +104,6 @@ export class WeatherSession {
   /** Condition at a 1-based position (defaults to the current one). */
   conditionAt(position = this.position): WeatherCondition | null {
     return this.conditions[position - 1] ?? null
-  }
-
-  clipAt(position: number): ClipNumber {
-    return this.config.clip_assignment?.[position - 1] ?? (position % 2 === 1 ? 1 : 2)
-  }
-
-  /** Video start time: only the third condition (reused clip) starts later. */
-  clipOffsetAt(position: number): number {
-    return position === 3 ? (this.config.clip3_offset_sec ?? WEATHER_CONFIG.clip3OffsetSec) : 0
   }
 
   /** Live link to the admin panel (safe to call more than once; never in a preview). */
@@ -229,6 +219,7 @@ export class WeatherSession {
       meta: {
         position,
         clip: track.clip,
+        recording: WEATHER_CONFIG.presence.recording,
         clip_offset_sec: track.offset,
         speed: SPEED,
       },

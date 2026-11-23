@@ -38,7 +38,7 @@ Health never drops below `healthFloor` (0.08); the object never dies.
 Consent and hometown → Intro video → Comprehension check → (Framing → Viewing → Survey) × 2 or 3 → Final questions → Done
 ```
 
-Each viewing lasts five minutes. Participants watch the plant and a prerecorded, blurred shadow. They use no microphone or camera. The selected hometown supplies coordinates for local weather. The optional family name personalises the framing and survey.
+Each Weather viewing lasts up to one minute. Participants watch the plant and a prerecorded, blurred shadow. They use no microphone or camera. The selected hometown supplies coordinates for local weather. The optional family name personalises the framing and survey.
 
 | Condition | What the participant sees |
 |---|---|
@@ -46,25 +46,26 @@ Each viewing lasts five minutes. Participants watch the plant and a prerecorded,
 | B | Presence and hometown weather |
 | C | Presence and Amsterdam weather, when enabled |
 
-Open-Meteo supplies current weather on the framing screen. If geocoding is unavailable, the participant can type their hometown. Missing coordinates or a failed forecast produce a cloudy daytime fallback and a flag in the session list. Conditions B and C start in the fetched or fallback state, change to a nearby state at roughly 1:30, and return at roughly 3:30. Changes take five seconds, affect colour and texture, and may shift by up to ten seconds to give presence cues room.
+Open-Meteo supplies current weather on the framing screen. If geocoding is unavailable, the participant can type their hometown. Missing coordinates or a failed forecast produce a cloudy daytime fallback and a flag in the session list. Conditions B and C start in the fetched or fallback state, change to a nearby state at roughly 0:18, and return at roughly 0:42. Changes take three seconds and may shift by up to five seconds to give presence cues room.
 
 ### Videos and presence cues
 
-Replace the placeholder files under `public/videos/` using the same filenames.
+The Presence preview and every Weather condition use the same recording and movement cues under `public/videos/`.
 
 | File | Use |
 |---|---|
-| `intro.mp4` | Two-minute introduction with captions |
+| `movement_v1.mp4`, `movement_v1.cues.json` | Recorded movement and matching cues for participant viewings |
 | `presence_1.mp4`, `presence_2.mp4` | Muted shadow clips |
 | `presence_1.cues.json`, `presence_2.cues.json` | Cue tracks corresponding to the two clips |
 
-Cue tracks are JSON arrays sorted by `t`. Times are seconds from the start of the source video and must fall within its duration. Optional `x` is a horizontal position between 0 (left) and 1 (right).
+Cue tracks are JSON arrays sorted by `t`. Times are seconds from the start of the source video and must fall within its duration. Optional `x` is a horizontal position between 0 (left) and 1 (right). Add `motion: { from, to, seconds }` to interpolate position between the start and end of a movement. Motion endpoints can extend beyond the frame.
 
 ```json
 [
-  { "t": 12, "event": "enter", "x": 0.2 },
-  { "t": 18.5, "event": "move", "x": 0.32 },
-  { "t": 45, "event": "still", "x": 0.32 },
+  { "t": 12, "event": "enter", "x": 0.2, "motion": { "from": -0.2, "to": 0.2, "seconds": 3 } },
+  { "t": 18.5, "event": "move", "x": 0.5, "motion": { "from": 0.2, "to": 0.5, "seconds": 2 } },
+  { "t": 20.5, "event": "behind", "x": 0.5 },
+  { "t": 45, "event": "still", "x": 0.5 },
   { "t": 92, "event": "leave" },
   { "t": 150, "event": "pass", "x": 0.5 }
 ]
@@ -72,14 +73,14 @@ Cue tracks are JSON arrays sorted by `t`. Times are seconds from the start of th
 
 | Cue | Plant response |
 |---|---|
-| No one present | Slightly closed with a soft glow |
-| `enter` | Opens and brightens over about three seconds |
-| `move` | Leans gently towards `x` |
-| `still` | Stays open and breathes more slowly |
-| `leave` | Closes gradually and fades over about a minute |
-| `pass` | Briefly perks up, then settles |
+| No one present | Closed with a soft glow |
+| `enter`, `move` | Petals open to 25% at the edge and open further as the person approaches the centre |
+| `behind` | Petals are fully open at the centre and the flower brightens |
+| `still` | Keeps the petals open |
+| `leave` | Petals close as the person moves away and the glow fades over about a minute |
+| `pass` | Petals briefly track the crossing and the glow pulses |
 
-Use footage long enough for five minutes of playback, plus the third-part offset of 150 seconds for clip 1. Shorter clips loop and replay their cues. Regenerate placeholders with Python, Pillow and FFmpeg.
+Each participant viewing starts at zero and runs for one minute. Regenerate placeholders with Python, Pillow and FFmpeg.
 
 ```bash
 python3 scripts/make-placeholder-intro.py
@@ -132,7 +133,7 @@ Env var names have the `VITE_` prefix because Vite only exposes those to the bro
 1. Open `/?admin=1` and sign in with your researcher account.
 2. In **New session**, enter a participant code and choose **Form** or **Weather**.
    - **Form** preselects plant-first or orb-first to balance the groups. You can override the order.
-   - **Weather** defaults to two conditions. Enable Amsterdam weather to run three. The suggested order rotates through both two-part orders or all six three-part orders. Clip order alternates independently and is also editable. The third part uses clip 1 from 150 seconds.
+   - **Weather** defaults to two conditions. Enable Amsterdam weather to run three. The suggested order rotates through both two-part orders or all six three-part orders. Each condition shows the same recorded movement sequence.
 3. Click **Create link** and open the participant's `?session=<id>` link in Chrome or Safari. Use the researcher script and live view in the admin panel. Form has a microphone calibration and round overrides. Weather has a skip command for the active condition.
 4. At the end, check that the participant screen confirms saving. Keep it open while pending rows retry. The done screen also offers a JSON download.
 
@@ -150,7 +151,7 @@ A bare Form link can create a session on Start when Supabase is configured. Use 
 | `?test=weather` | Local Weather preview. Add `&conditions=B,A` to set order and count. Defaults to A, B, C |
 | `?lab=weather` | Weather tuning and presence playback, with no session |
 | `?weather=rain` | Fix B/C or the lab to `rain`, `clear`, `cloudy`, `snow` or `fog`. Forecast fetches and scripted changes are skipped |
-| `?fast=1` | 10× speed for both studies. Five minutes become 30 seconds |
+| `?fast=1` | 10× speed for both studies. Weather viewings take up to 6 seconds and Form rounds take 30 seconds |
 | `?debug=1` | Form health, pulse, microphone and controls, or Weather clip, cue, clock, transition and weather controls |
 
 Use [the fast Weather preview](http://localhost:5173/?test=weather&fast=1&debug=1) with the local Vite server to inspect the full flow.

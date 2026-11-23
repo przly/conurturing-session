@@ -214,7 +214,6 @@ function nextInBalance(sessions: SessionRow[], includeC: boolean) {
   return {
     order: (form.length % 2 === 0 ? 'plant-orb' : 'orb-plant') as Order,
     conditions: joinList(orders[sameGroup % orders.length]),
-    clipsAlternate: weather.length % 2 === 1,
   }
 }
 
@@ -224,7 +223,6 @@ function NewSession({ sessions, onCreated }: { sessions: SessionRow[]; onCreated
   const [order, setOrder] = useState<Order | null>(null)
   const [includeC, setIncludeC] = useState(false)
   const [conditions, setConditions] = useState<string | null>(null)
-  const [clipsAlternate, setClipsAlternate] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<string | null>(null)
@@ -232,7 +230,6 @@ function NewSession({ sessions, onCreated }: { sessions: SessionRow[]; onCreated
   const suggested = nextInBalance(sessions, includeC)
   const effectiveOrder = order ?? suggested.order
   const effectiveConditions = conditions ?? suggested.conditions
-  const effectiveAlternate = clipsAlternate ?? suggested.clipsAlternate
   const conditionCount = includeC ? 3 : 2
 
   const create = async (e: React.FormEvent) => {
@@ -248,8 +245,8 @@ function NewSession({ sessions, onCreated }: { sessions: SessionRow[]; onCreated
             ...base,
             include_c: includeC,
             condition_order: effectiveConditions,
-            clip_assignment: joinList(clipsFor(effectiveAlternate, conditionCount)),
-            clip3_offset_sec: includeC ? WEATHER_CONFIG.clip3OffsetSec : null,
+            clip_assignment: joinList(clipsFor(conditionCount)),
+            clip3_offset_sec: includeC ? 0 : null,
           }
     const { error } = await supabase!.from('sessions').insert(row)
     setBusy(false)
@@ -261,7 +258,6 @@ function NewSession({ sessions, onCreated }: { sessions: SessionRow[]; onCreated
     setCode('')
     setOrder(null)
     setConditions(null)
-    setClipsAlternate(null)
     onCreated(id)
   }
 
@@ -351,27 +347,7 @@ function NewSession({ sessions, onCreated }: { sessions: SessionRow[]; onCreated
                   A = presence only · B = + hometown weather · C = + Amsterdam weather
                 </p>
               </fieldset>
-              <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 font-medium text-sm">Video clips per position</legend>
-                <RadioGroup
-                  value={effectiveAlternate ? 'alt' : 'std'}
-                  onValueChange={(v) => setClipsAlternate(v === 'alt')}
-                  className="flex flex-row flex-wrap gap-4"
-                >
-                  {[false, true].map((alt) => (
-                    <label key={String(alt)} className={radioLabel}>
-                      <Radio value={alt ? 'alt' : 'std'} />
-                      <span className="font-mono">{clipsFor(alt, conditionCount).join(', ')}</span>
-                      {alt === suggested.clipsAlternate && balanceHint}
-                    </label>
-                  ))}
-                </RadioGroup>
-                {includeC && (
-                  <p className="text-muted-foreground text-xs">
-                    The third condition replays clip 1 from {WEATHER_CONFIG.clip3OffsetSec} s.
-                  </p>
-                )}
-              </fieldset>
+              <p className="text-muted-foreground text-sm">Every condition plays the same movement recording from the beginning.</p>
             </div>
           )}
 

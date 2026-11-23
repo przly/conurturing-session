@@ -14,7 +14,8 @@ export interface TwinState {
    * calibration (normal speech ≈ 0.6). Drives visuals only, not health.
    */
   voice: number
-  leanX?: number
-  idleRate?: number
-  preventDroop?: boolean
+  /** Weather presence controls the petals independently of plant health. */
+  headOpenness?: number
+  /** 0–1: base glow during an intro voiceover cue. */
+  flowerEmphasis?: number
 }

@@ -74,7 +74,7 @@ export function LikertSurvey({ title, description, items, pictureItem, onSubmit 
                 {POINTS.map((point) => (
                   <label
                     key={point}
-                    className={cn('flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border py-2 tabular-nums hover:bg-accent/50 has-data-checked:border-primary/60 has-data-checked:bg-accent', picture && 'px-1')}
+                    className={cn('group/answer flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border py-2 tabular-nums hover:bg-accent/50 has-data-checked:border-primary/60 has-data-checked:bg-accent', picture && 'px-1')}
                   >
                     <Radio value={point} aria-label={picture ? picture.label(Number(point)) : labelFor(point)} />
                     {picture ? picture.render(Number(point)) : <span className="text-sm">{point}</span>}

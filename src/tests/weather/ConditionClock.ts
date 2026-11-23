@@ -39,6 +39,10 @@ export class ConditionClock {
     this.timer = window.setInterval(this.tick, TICK_MS)
   }
 
+  get remainingSec() {
+    return this.ended ? 0 : Math.max(0, this.durationSec - Math.max(this.t, this.wallTime))
+  }
+
   stop() {
     clearInterval(this.timer)
     this.timer = 0
@@ -52,8 +56,14 @@ export class ConditionClock {
     this.onEnd()
   }
 
+  private get wallTime() {
+    return this.timer ? ((performance.now() - this.startReal) / 1000) * this.speed : 0
+  }
+
   private tick = () => {
-    this.t = Math.min(this.durationSec, this.readTime?.() ?? ((performance.now() - this.startReal) / 1000) * this.speed)
+    const wallTime = this.wallTime
+    const playbackTime = this.readTime?.() ?? wallTime
+    this.t = wallTime >= this.durationSec ? this.durationSec : Math.min(this.durationSec, playbackTime)
     this.onTick?.(this.t)
     if (this.t >= this.durationSec) this.finish()
   }

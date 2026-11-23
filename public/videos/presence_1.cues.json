@@ -2,63 +2,138 @@
   {
     "t": 12,
     "event": "enter",
-    "x": 0.2
+    "x": 0.2,
+    "motion": {
+      "from": -0.2,
+      "to": 0.2,
+      "seconds": 3
+    }
   },
   {
     "t": 18.5,
     "event": "move",
-    "x": 0.32
+    "x": 0.5,
+    "motion": {
+      "from": 0.2,
+      "to": 0.5,
+      "seconds": 2
+    }
+  },
+  {
+    "t": 20.5,
+    "event": "behind",
+    "x": 0.5
   },
   {
     "t": 45,
     "event": "still",
-    "x": 0.32
+    "x": 0.5
   },
   {
     "t": 92,
-    "event": "leave"
+    "event": "leave",
+    "motion": {
+      "from": 0.5,
+      "to": 1.2,
+      "seconds": 3
+    }
   },
   {
     "t": 150,
     "event": "pass",
-    "x": 0.5
+    "x": 0.5,
+    "motion": {
+      "from": -0.15000000000000002,
+      "to": 1.15,
+      "seconds": 4
+    }
   },
   {
     "t": 185,
     "event": "enter",
-    "x": 0.78
+    "x": 0.78,
+    "motion": {
+      "from": 1.2,
+      "to": 0.78,
+      "seconds": 3
+    }
   },
   {
     "t": 204,
     "event": "move",
-    "x": 0.68
+    "x": 0.5,
+    "motion": {
+      "from": 0.78,
+      "to": 0.5,
+      "seconds": 2
+    }
+  },
+  {
+    "t": 206,
+    "event": "behind",
+    "x": 0.5
   },
   {
     "t": 235,
     "event": "still",
-    "x": 0.68
+    "x": 0.5
   },
   {
     "t": 278,
-    "event": "leave"
+    "event": "leave",
+    "motion": {
+      "from": 0.5,
+      "to": 1.2,
+      "seconds": 3
+    }
   },
   {
     "t": 334,
     "event": "pass",
-    "x": 0.48
+    "x": 0.48,
+    "motion": {
+      "from": -0.17000000000000004,
+      "to": 1.13,
+      "seconds": 4
+    }
   },
   {
     "t": 374,
     "event": "enter",
-    "x": 0.22
+    "x": 0.22,
+    "motion": {
+      "from": -0.2,
+      "to": 0.22000000000000003,
+      "seconds": 3
+    }
+  },
+  {
+    "t": 382,
+    "event": "move",
+    "x": 0.5,
+    "motion": {
+      "from": 0.22000000000000003,
+      "to": 0.5,
+      "seconds": 2
+    }
+  },
+  {
+    "t": 384,
+    "event": "behind",
+    "x": 0.5
   },
   {
     "t": 391,
     "event": "still",
-    "x": 0.22
+    "x": 0.5
   },
   {
     "t": 427,
-    "event": "leave"
+    "event": "leave",
+    "motion": {
+      "from": 0.5,
+      "to": 1.2,
+      "seconds": 3
+    }
   }
 ]

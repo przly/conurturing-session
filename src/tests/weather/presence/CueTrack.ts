@@ -2,8 +2,9 @@ import { SPEED, WEATHER_CONFIG, type ClipNumber } from '@/config'
 
 export interface Cue {
   t: number
-  event: 'enter' | 'move' | 'still' | 'pass' | 'leave'
+  event: 'enter' | 'move' | 'behind' | 'still' | 'pass' | 'leave'
   x?: number
+  motion?: { from: number; to: number; seconds: number }
 }
 
 export class CueTrack {
@@ -62,8 +63,7 @@ export class CueTrack {
   }
 }
 
-export async function loadPresence(clip: ClipNumber, offset: number, signal: AbortSignal) {
-  const path = `/videos/presence_${clip}`
+export async function loadPresence(clip: ClipNumber, offset: number, signal: AbortSignal, path = `/videos/presence_${clip}`) {
   const video = document.createElement('video')
   video.muted = true
   video.playsInline = true
@@ -104,10 +104,14 @@ export async function loadPresence(clip: ClipNumber, offset: number, signal: Abo
     const cues = raw.map((cue, i): Cue => {
       if (
         !cue || typeof cue.t !== 'number' || !Number.isFinite(cue.t) || cue.t < 0 || cue.t >= video.duration ||
-        (i > 0 && cue.t < raw[i - 1].t) || !['enter', 'move', 'still', 'pass', 'leave'].includes(cue.event) ||
+        (i > 0 && cue.t < raw[i - 1].t) || !['enter', 'move', 'behind', 'still', 'pass', 'leave'].includes(cue.event) ||
+        (cue.motion !== undefined && (
+          !cue.motion || !Number.isFinite(cue.motion.from) || !Number.isFinite(cue.motion.to) ||
+          !Number.isFinite(cue.motion.seconds) || cue.motion.seconds <= 0
+        )) ||
         (cue.x !== undefined && (typeof cue.x !== 'number' || !Number.isFinite(cue.x) || cue.x < 0 || cue.x > 1))
       ) throw new Error(`Invalid presence cue ${i + 1}`)
-      return { t: cue.t, event: cue.event, x: cue.x }
+      return { t: cue.t, event: cue.event, x: cue.x, motion: cue.motion }
     })
     const start = ((offset % video.duration) + video.duration) % video.duration
     if (start > 0) {
@@ -121,4 +125,9 @@ export async function loadPresence(clip: ClipNumber, offset: number, signal: Abo
     clear()
     throw error
   }
+}
+
+/** Identical timed stimulus in every participant viewing. */
+export function loadRecordedPresence(signal: AbortSignal) {
+  return loadPresence(1, 0, signal, `/videos/${WEATHER_CONFIG.presence.recording}`)
 }

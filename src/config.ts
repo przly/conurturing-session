@@ -54,14 +54,17 @@ export const MIC_CONFIG = {
  * Presence and weather visuals get their own sections in later steps.
  */
 export const WEATHER_CONFIG = {
-  conditionSec: 300,
+  conditionSec: 60,
   presence: {
     restHealth: 0.82,
+    recording: 'movement_v1',
+    floorDepthRadius: 2.1,
+    entryOpenness: 0.25,
+    petalSpringRate: 18,
+    petalSpringDamping: 0.56,
     wakeSec: 3,
     fadeSec: 60,
     passSec: 4,
-    leanDegrees: 7,
-    stillIdleRate: 0.55,
     blurPx: 30,
     contrast: 0.8,
     opacity: 0.48,
@@ -69,23 +72,22 @@ export const WEATHER_CONFIG = {
   },
   /** Amsterdam, for condition C. */
   amsterdam: { name: 'Amsterdam', lat: 52.37, lon: 4.9 },
-  /** Where clip 1 starts when it is reused for a third condition (video seconds). */
-  clip3OffsetSec: 150,
+
   /** Shown in B/C until live weather is fetched, and when fetching fails. */
   fallbackState: 'cloudy' as WeatherState,
   /** Seconds a change between weather states takes (condition seconds; faster with ?fast=1). */
-  transitionSec: 5,
+  transitionSec: 3,
 
   /**
    * Scripted weather changes, same rhythm in every B/C condition: start in the
    * real state, go to a nearby state at the first time, back at the second.
    */
-  transitionsAtSec: [90, 210],
+  transitionsAtSec: [18, 42],
   /** Each scripted change may move up to this far to stay clear of presence cues… */
-  transitionMaxShiftSec: 10,
+  transitionMaxShiftSec: 5,
   /** …keeping at least this gap between a change (start to end) and any cue. */
-  transitionCueGapSec: 3,
-  /** Where the 1:30 change goes, per real state. */
+  transitionCueGapSec: 2,
+  /** Where the first scripted change goes, per real state. */
   nearby: { clear: 'cloudy', cloudy: 'rain', rain: 'cloudy', snow: 'cloudy', fog: 'cloudy' } as Record<WeatherState, WeatherState>,
 
   /** Open-Meteo forecast request; after this the fallback state is used. */
@@ -110,18 +112,44 @@ export const WEATHER_CONFIG = {
    * haze (low contrast) and flicker (occasional brief brightening).
    */
   visuals: {
+    petalColor: '#ffffff',
+    petalDrop: 0.035,
+    closedPetalCurl: 0.28,
+    flowerCenterScale: 0.65,
+    petalLightIntensity: 0.24,
+    flowerCenterGlow: 3,
+    snowFlowerCenterColor: '#78ceff',
+    stormFlowerCenterColor: '#ffd84a',
+    closedFlowerCenterLift: 0.04,
+    leafCount: 3,
+    stemRadiusScale: 1 / 3,
+    day: {
+      clearExposure: 1.45,
+      clearSkyHighlight: '#8bdcff',
+      backgrounds: {
+        clear: '#19adff',
+        cloudy: '#86a9c3',
+        rain: '#6e879f',
+        snow: '#a7b9cb',
+        fog: '#566574',
+      } satisfies Record<WeatherState, string>,
+      environmentIntensity: 0.65,
+      floor: '#ffffff',
+      bloomThreshold: 0.75,
+      petalLightIntensity: 0.32,
+    },
     states: {
       clear: { tint: '#ffb45a', tintAmount: 0.3, saturation: 1.1, brightness: 1.05, glowTint: 0.15, background: '#1c130a', shimmer: 1, rain: 0, snow: 0, haze: 0, flicker: 0 },
-      cloudy: { tint: '#a4adb8', tintAmount: 0.3, saturation: 0.8, brightness: 0.95, glowTint: 0.15, background: '#14171b', shimmer: 0, rain: 0, snow: 0, haze: 0.3, flicker: 0 },
+      cloudy: { tint: '#a4adb8', tintAmount: 0.2, saturation: 1, brightness: 0.95, glowTint: 0.1, background: '#14171b', shimmer: 0, rain: 0, snow: 0, haze: 0.3, flicker: 0 },
       rain: { tint: '#5e90dc', tintAmount: 0.35, saturation: 0.9, brightness: 0.95, glowTint: 0.25, background: '#0a1324', shimmer: 0, rain: 1, snow: 0, haze: 0.15, flicker: 0 },
       snow: { tint: '#eef4ff', tintAmount: 0.35, saturation: 0.75, brightness: 1.05, glowTint: 0.2, background: '#171c25', shimmer: 0, rain: 0, snow: 1, haze: 0.1, flicker: 0 },
-      fog: { tint: '#8f949d', tintAmount: 0.35, saturation: 0.75, brightness: 0.92, glowTint: 0.25, background: '#191b1f', shimmer: 0, rain: 0, snow: 0, haze: 0.75, flicker: 1 },
+      fog: { tint: '#8f949d', tintAmount: 0.35, saturation: 0.75, brightness: 0.92, glowTint: 0.25, background: '#191b1f', shimmer: 0, rain: 0.8, snow: 0, haze: 0.75, flicker: 1 },
     } satisfies Record<WeatherState, WeatherVisual>,
     /** Night (is_day = 0): cooler tint, plant slightly dimmer, room much darker. */
-    night: { tint: '#5468a8', tintAmount: 0.35, brightness: 0.85, background: 0.4 },
+    night: { tint: '#5468a8', tintAmount: 0.35, brightness: 0.85, background: 0.4, petalLightIntensity: 0.15 },
     particles: {
       /** Falling droplets. Speed in scene units per second. */
-      rain: { count: 220, size: 0.03, speed: 2.4, color: '#a9c8ff', opacity: 0.55 },
+      rain: { count: 220, size: 0.06, speed: 2.4, color: '#a9c8ff', opacity: 0.55 },
       /** Slow drifting flakes with a gentle sparkle. */
       snow: { count: 160, size: 0.05, speed: 0.16, color: '#ffffff', opacity: 0.8 },
       /** Warm points that twinkle in place around the plant. */
@@ -130,7 +158,9 @@ export const WEATHER_CONFIG = {
     /** Scene fog distances at haze 1 (haze 0 = the normal room). */
     haze: { fogNear: 1.5, fogFar: 6.5 },
     /** Occasional brief brightening (storm feel): random gap, flash length, exposure boost. */
-    flicker: { minGapSec: 7, maxGapSec: 16, flashSec: 0.14, strength: 0.35 },
+    stormExposure: 0.82,
+    dayStormExposure: 0.48,
+    flicker: { minGapSec: 4, maxGapSec: 8, flashSec: 0.14, strength: 0.35 },
   },
 }
 
@@ -219,10 +249,9 @@ export function allConditionOrders(includeC: boolean): WeatherCondition[][] {
   ]
 }
 
-/** Clips alternate across sessions; a third condition reuses clip 1 (from an offset). */
-export function clipsFor(alternate: boolean, conditionCount: number): ClipNumber[] {
-  const clips: ClipNumber[] = alternate ? [2, 1] : [1, 2]
-  return conditionCount === 3 ? [...clips, 1] : clips
+/** Each condition shows the same movement sequence from the beginning. */
+export function clipsFor(conditionCount: number): ClipNumber[] {
+  return Array<ClipNumber>(conditionCount).fill(1)
 }
 
 /** "B,A,C" ↔ ['B', 'A', 'C'] (how lists are stored in text columns). */
@@ -246,6 +275,9 @@ export const URL_PARAMS = {
   session: params.get('session'),
   /** Bare-link preview of a test without a session (`?test=weather`); nothing is saved for the weather test. */
   test: isTestType(params.get('test')) ? (params.get('test') as TestType) : null,
+  presenceTest: params.get('test') === 'presence',
+  /** `?test=intro`: only the Weather test intro (two linked plants), nothing saved. */
+  introPreview: params.get('test') === 'intro',
   /** Weather preview only: condition order, e.g. `?conditions=B,A` (default A,B,C). */
   conditions: parseConditions(params.get('conditions')),
   /** Weather test: force a weather state in B/C (`?weather=rain`), for visual tuning. */

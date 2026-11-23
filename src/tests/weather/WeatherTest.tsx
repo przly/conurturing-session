@@ -11,7 +11,7 @@ import { ComprehensionCheck } from './components/ComprehensionCheck'
 import { FinalQuestions } from './components/FinalQuestions'
 import { HomeCircles } from './components/HomeCircles'
 import { IntroScreen } from './components/IntroScreen'
-import { loadPresence, type CueTrack } from './presence/CueTrack'
+import { loadRecordedPresence, type CueTrack } from './presence/CueTrack'
 import { ConditionStage } from './components/ConditionStage'
 import { StartScreen } from './components/StartScreen'
 import { WeatherDebugPanel } from './components/WeatherDebugPanel'
@@ -25,7 +25,7 @@ interface WeatherTestProps {
 }
 
 /**
- * Start → intro clip → comprehension check →
+ * Start → live intro (two linked plants) → comprehension check →
  * (framing → condition → survey) × 2–3 → final questions → done.
  * No microphone; during a condition the participant only watches.
  */
@@ -81,7 +81,7 @@ export function WeatherTest({ sessionId, config }: WeatherTestProps) {
     assets.current = controller
     void Promise.all([
       session.prepareWeather(position),
-      loadPresence(session.clipAt(position), session.clipOffsetAt(position), controller.signal),
+      loadRecordedPresence(controller.signal),
     ]).then(([weather, track]) => {
       if (!controller.signal.aborted) setPrepared({ position, weather, track })
     }).catch(() => {
@@ -125,8 +125,9 @@ export function WeatherTest({ sessionId, config }: WeatherTestProps) {
       case 'intro':
         return (
           <IntroScreen
+            hometown={session.personal.hometown}
             onStart={() => session.log('intro_start', { round: 0, meta: { replay, watched_sec: 0 } })}
-            onEnd={(watchedSec) => session.log('intro_end', { round: 0, meta: { replay, watched_sec: watchedSec } })}
+            onEnd={(watchedSec, skipped) => session.log('intro_end', { round: 0, meta: { replay, watched_sec: watchedSec, skipped } })}
             onContinue={() => setPhase('check')}
           />
         )
@@ -200,7 +201,8 @@ export function WeatherTest({ sessionId, config }: WeatherTestProps) {
               test_type: 'weather',
               preview: session.preview,
               condition_order: session.conditions.join(','),
-              clip_assignment: session.config.clip_assignment?.join(',') ?? null,
+              clip_assignment: session.conditions.map(() => 1).join(','),
+              recording: WEATHER_CONFIG.presence.recording,
               hometown: session.personal.hometown,
               hometown_coords: session.hometownCoords,
               family_name: session.personal.familyName,
