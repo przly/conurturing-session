@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { AdminApp } from '@/AdminApp'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -12,11 +12,14 @@ import { PresenceTest } from '@/tests/weather/PresenceTest'
 import { WeatherLab } from '@/tests/weather/WeatherLab'
 import { WeatherTest } from '@/tests/weather/WeatherTest'
 
+const FlowerPair = lazy(() => import('@/tests/flowers/FlowerPair'))
+
 /**
  * Router:
  *  - `?admin=1` researcher panel, `?compare=1` plant/orb tuning view,
  *    `?lab=weather` weather look tuning (plant + debug panel, no session)
  *  - `?session=<id>` asks the database which test the session runs
+ *  - `?test=flowers` live flower pairing
  *  - `?test=weather` local Weather test preview (nothing saved)
  *  - `?test=intro` only the Weather test intro
  *  - anything else: the Form test, exactly as before
@@ -28,6 +31,7 @@ export default function App() {
   if (URL_PARAMS.session) return <SessionRouter id={URL_PARAMS.session} />
   if (URL_PARAMS.presenceTest) return <PresenceTest />
   if (URL_PARAMS.introPreview) return <IntroPreview />
+  if (URL_PARAMS.flowerPair) return <Suspense fallback={null}><FlowerPair /></Suspense>
   if (URL_PARAMS.test === 'weather') return <WeatherTest sessionId={null} config={PREVIEW_CONFIG} />
   return <FormTest />
 }

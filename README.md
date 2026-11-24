@@ -237,3 +237,19 @@ scripts/                       Video generators and Form regression check
 supabase/schema.sql            Schema for new projects
 supabase/migrations/           Incremental schema updates
 ```
+
+## Twin flowers roleplay
+
+Open `/?test=flowers` on an HTTPS deployment of this app with
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` configured, as described in
+`.env.example`. The pair uses Supabase Realtime public Broadcast channels.
+You can also try both seats on `localhost` on a single computer.
+
+1. Copy the Flower B link and open it on the second computer.
+2. Open Flower A on the first computer.
+3. Enable the camera on both screens. Step into and out of view on each
+   computer to watch the other screen's flower open and close.
+
+MediaPipe runs in each browser. Supabase relays the seat and a face-present
+boolean. Camera frames stay on the computer that captured them. The browser
+downloads the MediaPipe runtime and face detector model on first use.

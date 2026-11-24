@@ -276,6 +276,7 @@ export const URL_PARAMS = {
   /** Bare-link preview of a test without a session (`?test=weather`); nothing is saved for the weather test. */
   test: isTestType(params.get('test')) ? (params.get('test') as TestType) : null,
   presenceTest: params.get('test') === 'presence',
+  flowerPair: params.get('test') === 'flowers',
   /** `?test=intro`: only the Weather test intro (two linked plants), nothing saved. */
   introPreview: params.get('test') === 'intro',
   /** Weather preview only: condition order, e.g. `?conditions=B,A` (default A,B,C). */
