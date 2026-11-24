@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { WEATHER_CONFIG } from '@/config'
 import { TwinCanvas } from '@/shared/components/TwinCanvas'
 import { supabase } from '@/shared/data/supabase'
 import type { TwinState } from '@/shared/scene/state'
@@ -8,6 +9,9 @@ import { startFaceTracking } from './faceTracking'
 type Seat = 'a' | 'b'
 const SIGNAL_INTERVAL = 250
 const SIGNAL_TIMEOUT = 2000
+
+// The Weather study's presence-only condition uses its flower in studio lighting.
+const studioLook = () => null
 
 export default function FlowerPair() {
   const params = new URLSearchParams(window.location.search)
@@ -112,12 +116,18 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
     const { openness, updated } = bloom.current
     const next = target + (openness - target) * Math.exp(-Math.min(now - updated, 100) / 400)
     bloom.current = { openness: next, updated: now }
-    return { health: 0.75, pulse: 0, listening: false, voice: 0, headOpenness: next }
+    const { restHealth } = WEATHER_CONFIG.presence
+    return { health: restHealth + (1 - restHealth) * next, pulse: 0, listening: false, voice: 0, headOpenness: next }
   }
 
   return (
     <main className="fixed inset-0 bg-[#0d0e11] text-[#f5f1f8]" aria-label={`Flower ${seat.toUpperCase()}`}>
-      <TwinCanvas form="plant" getState={readFlower} />
+      <TwinCanvas
+        form="plant"
+        getState={readFlower}
+        getWeather={studioLook}
+        floorDepthRadius={WEATHER_CONFIG.presence.floorDepthRadius}
+      />
       {connection && <p role="status" className="absolute top-4 left-4 rounded-md bg-black/75 px-3 py-2 text-sm">{connection}</p>}
       <aside className="absolute right-4 bottom-4 w-36 overflow-hidden rounded-lg border border-white/20 bg-[#161319] shadow-lg sm:w-48" aria-label="Your camera">
         <video ref={video} autoPlay muted playsInline aria-label="Your camera preview" className={`aspect-[4/3] w-full -scale-x-100 object-cover ${camera === 'on' ? 'block' : 'hidden'}`} />
