@@ -100,14 +100,7 @@ function PairSetup() {
 
 function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
   const selfPreview = import.meta.env.DEV && room === 'local-flower-preview'
-  const practiceKey = `flower-practice:${room}:${seat}`
-  const [joined, setJoined] = useState(() => {
-    try {
-      return localStorage.getItem(practiceKey) === 'complete'
-    } catch {
-      return false
-    }
-  })
+  const [joined, setJoined] = useState(false)
   const [practiceStep, setPracticeStep] = useState(0)
   const [holdSeconds, setHoldSeconds] = useState<number | null>(null)
   const practicing = !selfPreview && !joined
@@ -219,15 +212,6 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
     }
   }, [camera, practicePose, practiceStep])
 
-  const joinPair = () => {
-    try {
-      localStorage.setItem(practiceKey, 'complete')
-    } catch {
-      // Continue in this tab when browser storage is unavailable.
-    }
-    setJoined(true)
-  }
-
   const readFlower = (): TwinState => {
     const now = performance.now()
     const { openness: partnerOpenness, glow: partnerGlow, received } = partner.current
@@ -329,7 +313,7 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
       </div>
       {practicing && !practicePose && (
         <div className="absolute inset-0 grid place-items-center bg-black/65">
-          <Button size="lg" className="scale-200" onClick={joinPair}>
+          <Button size="lg" className="scale-200" onClick={() => setJoined(true)}>
             Start the test
           </Button>
         </div>
