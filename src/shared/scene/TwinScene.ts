@@ -358,7 +358,8 @@ export class TwinScene {
       const look = this.getWeather!()
       this.floorFogStrength.value = look ? 0.25 : 1
       const exposure = this.weather.apply(look, targets, dt)
-      this.bloom.enabled = look !== null
+      const studioCenterGlow = !look && state.flowerCenterGlow !== undefined
+      this.bloom.enabled = look !== null || studioCenterGlow
       this.updateLighting(look)
       this.weatherLeaves?.color.copy(this.bodyMaterial.color)
       if (!look) {
@@ -370,6 +371,7 @@ export class TwinScene {
         WEATHER_CONFIG.visuals.day.bloomThreshold,
         look ? 1 - look.night : 0,
       )
+      if (studioCenterGlow) this.bloom.threshold = 0.85
       if (this.mattePetals) {
         this.petalHighlightLimit.value = look ? this.bloom.threshold * 0.98 : 0.85
         const { day, night, petalLightIntensity } = WEATHER_CONFIG.visuals
@@ -390,6 +392,7 @@ export class TwinScene {
       this.poolMaterial.color.lerp(SNOW_CENTER_COLOR, snow)
       const stormGlow = THREE.MathUtils.lerp(1, 0.6, storm)
       this.material.emissiveIntensity *= WEATHER_CONFIG.visuals.flowerCenterGlow * openness * openness * stormGlow * (1 + 0.8 * lightning)
+      if (state.flowerCenterGlow !== undefined) this.material.emissiveIntensity = state.flowerCenterGlow
     }
     this.backdrop?.update(this.camera, this.container.clientWidth)
     this.form.update(e, this.weather?.current ?? undefined)

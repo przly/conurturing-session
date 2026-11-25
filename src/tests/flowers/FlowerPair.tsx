@@ -121,7 +121,14 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
     const next = target + (openness - target) * Math.exp(-Math.min(now - updated, 100) / 400)
     bloom.current = { openness: next, updated: now }
     const { restHealth } = WEATHER_CONFIG.presence
-    return { health: restHealth + (1 - restHealth) * next, pulse: 0, listening: false, voice: 0, headOpenness: next }
+    return {
+      health: restHealth + (1 - restHealth) * next,
+      pulse: 0,
+      listening: false,
+      voice: 0,
+      headOpenness: next,
+      flowerCenterGlow: WEATHER_CONFIG.visuals.flowerCenterGlow * next,
+    }
   }
 
   return (

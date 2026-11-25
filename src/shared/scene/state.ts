@@ -16,6 +16,8 @@ export interface TwinState {
   voice: number
   /** Weather presence controls the petals independently of plant health. */
   headOpenness?: number
+  /** Emissive intensity for the center of the live flower. */
+  flowerCenterGlow?: number
   /** 0–1: base glow during an intro voiceover cue. */
   flowerEmphasis?: number
 }
