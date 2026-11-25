@@ -42,12 +42,14 @@ interface TwinCanvasProps {
   leafRotationOffset?: number
   floorDepthRadius?: number
   disableFog?: boolean
+  cameraTargetY?: number
+  stemHeightScale?: number
   floorFrontExtend?: number
   backdrop?: VideoBackdropOptions
 }
 
 /** React wrapper around the imperative Three.js scene. */
-export function TwinCanvas({ form, getState, className, style, onScene, getWeather, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog }: TwinCanvasProps) {
+export function TwinCanvas({ form, getState, className, style, onScene, getWeather, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog, cameraTargetY, stemHeightScale }: TwinCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const getStateRef = useRef(getState)
   const getWeatherRef = useRef(getWeather)
@@ -70,7 +72,7 @@ export function TwinCanvas({ form, getState, className, style, onScene, getWeath
         containerRef.current,
         form,
         () => getStateRef.current(),
-        { getWeather: hasWeather ? () => getWeatherRef.current?.() ?? null : undefined, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog },
+        { getWeather: hasWeather ? () => getWeatherRef.current?.() ?? null : undefined, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog, cameraTargetY, stemHeightScale },
       )
     } catch (error) {
       console.error(error)
@@ -83,7 +85,7 @@ export function TwinCanvas({ form, getState, className, style, onScene, getWeath
       onSceneRef.current?.(null)
       scene.dispose()
     }
-  }, [SceneConstructor, form, hasWeather, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog])
+  }, [SceneConstructor, form, hasWeather, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog, cameraTargetY, stemHeightScale])
 
   return (
     <div ref={containerRef} aria-hidden="true" className={cn('size-full', className)} style={style}>

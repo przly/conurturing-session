@@ -165,13 +165,14 @@ function createLeafGeometry() {
 export function createPlant(
   glow: THREE.Material,
   foliage: THREE.Material,
-  { mattePetals, weatherLeaves, leafCount = PLANT.leaves.length, leafWidthScale = 1, leafRotationOffset = 0, stemRadiusScale = 1, closedCenterLift = 0, centerScale = 1, petalWidthScale = 1, petalDrop = 0, closedPetalCurl = 0 }: {
+  { mattePetals, weatherLeaves, leafCount = PLANT.leaves.length, leafWidthScale = 1, leafRotationOffset = 0, stemRadiusScale = 1, stemHeightScale = 1, closedCenterLift = 0, centerScale = 1, petalWidthScale = 1, petalDrop = 0, closedPetalCurl = 0 }: {
     mattePetals?: THREE.Material
     weatherLeaves?: THREE.Material
     leafCount?: number
     leafWidthScale?: number
     leafRotationOffset?: number
     stemRadiusScale?: number
+    stemHeightScale?: number
     closedCenterLift?: number
     centerScale?: number
     petalWidthScale?: number
@@ -194,7 +195,8 @@ export function createPlant(
   const joints: THREE.Group[] = []
   let parent: THREE.Object3D = body
   let offset = 0
-  for (const length of PLANT.segments) {
+  const segmentLengths = PLANT.segments.map((length) => length * stemHeightScale)
+  for (const length of segmentLengths) {
     const joint = new THREE.Group()
     joint.position.y = offset
     parent.add(joint)
@@ -206,12 +208,12 @@ export function createPlant(
     parent = joint
     offset = length
   }
-  const totalHeight = PLANT.segments.reduce((a, b) => a + b, 0)
+  const totalHeight = segmentLengths.reduce((a, b) => a + b, 0)
 
   // Leaves, spiralling round the stem (golden angle) so none hides another.
   const leaves = PLANT.leaves.slice(0, leafCount).map(([segmentIndex, height, length], i) => {
     const azimuth = new THREE.Group()
-    azimuth.position.y = height
+    azimuth.position.y = height * stemHeightScale
     azimuth.rotation.y = 0.6 + (i * 137.5 + leafRotationOffset) * DEG
     joints[segmentIndex].add(azimuth)
     const elevation = new THREE.Group()
@@ -224,7 +226,7 @@ export function createPlant(
 
   // Flower on top, with petals that open with health and close into a bud.
   const head = new THREE.Group()
-  head.position.y = PLANT.segments[PLANT.segments.length - 1]
+  head.position.y = segmentLengths[segmentLengths.length - 1]
   head.rotation.x = PLANT.headTiltDeg * DEG
   joints[joints.length - 1].add(head)
   const centerGeometry = track(new THREE.SphereGeometry(PLANT.centerRadius * centerScale, 24, 16))

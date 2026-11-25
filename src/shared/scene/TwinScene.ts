@@ -23,6 +23,8 @@ export interface TwinSceneOptions {
   leafRotationOffset?: number
   floorDepthRadius?: number
   disableFog?: boolean
+  cameraTargetY?: number
+  stemHeightScale?: number
   /** Extra floor in front of the stage, toward the camera (the back edge stays put). */
   floorFrontExtend?: number
 }
@@ -94,6 +96,7 @@ export class TwinScene {
   private container: HTMLElement
   private getState: () => TwinState
   private getWeather: (() => WeatherLook | null) | null
+  private readonly cameraTargetY: number
   private frame = 0
   private lastTime = performance.now()
 
@@ -102,6 +105,7 @@ export class TwinScene {
     this.container = container
     this.getState = getState
     this.getWeather = options.getWeather ?? null
+    this.cameraTargetY = options.cameraTargetY ?? 0.8
 
     // Throws if WebGL is unavailable; the React wrapper shows a text fallback.
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -126,7 +130,7 @@ export class TwinScene {
     this.disposables.push(envMap, this.material, this.bodyMaterial)
 
     this.camera.position.set(0, 1.15, 4.3)
-    this.camera.lookAt(0, 0.8, 0)
+    this.camera.lookAt(0, this.cameraTargetY, 0)
 
     if (options.backdrop) {
       this.backdrop = new VideoBackdrop(options.backdrop)
@@ -187,6 +191,7 @@ export class TwinScene {
             leafWidthScale: options.leafWidthScale,
             leafCount: WEATHER_CONFIG.visuals.leafCount,
             stemRadiusScale: WEATHER_CONFIG.visuals.stemRadiusScale,
+            stemHeightScale: options.stemHeightScale,
             closedCenterLift: WEATHER_CONFIG.visuals.closedFlowerCenterLift,
             centerScale: WEATHER_CONFIG.visuals.flowerCenterScale,
             petalWidthScale: options.petalWidthScale,
@@ -420,7 +425,7 @@ export class TwinScene {
     this.camera.position.set(0, 1.15, 4.3 * fit)
     // Keep the same distance haze when the camera is pulled back for a narrow view.
     if (this.weather) this.weather.fogShift = 4.3 * (fit - 1)
-    this.camera.lookAt(0, 0.8, 0)
+    this.camera.lookAt(0, this.cameraTargetY, 0)
     this.camera.updateProjectionMatrix()
   }
 }

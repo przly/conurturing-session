@@ -20,6 +20,29 @@ const FULL_GLOW_FACE_SIZE = 0.35
 const MAX_PETAL_OPENNESS = 1.23
 const PEAK_CENTER_GLOW = 6
 const SHAKE_START_GLOW = 0.75
+const PRACTICE_HOLD_MS = 5000
+const PRACTICE_POSES: { instruction: string; cameraPrompt: string; matches: (face: TrackedFace | null) => boolean }[] = [
+  {
+    instruction: 'Move back to close the petals.',
+    cameraPrompt: 'Move back',
+    matches: (face) => face !== null && face.size <= (FAR_FACE_SIZE + FULL_BLOOM_FACE_SIZE) / 2,
+  },
+  {
+    instruction: 'Move left or right.',
+    cameraPrompt: 'Move left or right',
+    matches: (face) => face !== null && Math.abs(face.horizontalPosition - 0.5) >= 0.25,
+  },
+  {
+    instruction: 'Center your face and move very close.',
+    cameraPrompt: 'Center and move closer',
+    matches: (face) => face !== null && Math.abs(face.horizontalPosition - 0.5) <= 0.15 && glowFor(face.size) >= SHAKE_START_GLOW,
+  },
+  {
+    instruction: 'Step completely out of the frame.',
+    cameraPrompt: 'Leave the frame',
+    matches: (face) => face === null,
+  },
+]
 
 function opennessFor(face: TrackedFace | null) {
   if (!face) return 0
@@ -77,6 +100,19 @@ function PairSetup() {
 
 function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
   const selfPreview = import.meta.env.DEV && room === 'local-flower-preview'
+  const practiceKey = `flower-practice:${room}:${seat}`
+  const [joined, setJoined] = useState(() => {
+    try {
+      return localStorage.getItem(practiceKey) === 'complete'
+    } catch {
+      return false
+    }
+  })
+  const [practiceStep, setPracticeStep] = useState(0)
+  const [holdSeconds, setHoldSeconds] = useState<number | null>(null)
+  const practicing = !selfPreview && !joined
+  const practicePose = practicing ? PRACTICE_POSES[practiceStep] : undefined
+  const useOwnCamera = selfPreview || practicing
   const video = useRef<HTMLVideoElement>(null)
   const localFace = useRef<TrackedFace | null>(null)
   const partner = useRef({ openness: 0, glow: 0, received: -Infinity })
@@ -87,7 +123,7 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
   const bloom = useRef({ openness: 0, glow: 0, updated: 0 })
 
   useEffect(() => {
-    if (selfPreview) return
+    if (useOwnCamera) return
     const client = supabase
     if (!client) return
     let active = true
@@ -129,7 +165,7 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
       partner.current.received = -Infinity
       if (channel) void client.removeChannel(channel)
     }
-  }, [room, seat, selfPreview])
+  }, [room, seat, useOwnCamera])
 
   const cameraRequested = camera !== 'off'
   useEffect(() => {
@@ -142,6 +178,7 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
     }, (message) => {
       localFace.current = null
       setTrackedFace(null)
+      setHoldSeconds(null)
       setCameraError(message)
       setCamera('off')
     })
@@ -151,12 +188,52 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
     }
   }, [cameraRequested])
 
+  useEffect(() => {
+    if (!practicePose || camera !== 'on') return
+    let heldSince: number | null = null
+    const resetHold = () => {
+      heldSince = null
+      setHoldSeconds(null)
+    }
+    const timer = window.setInterval(() => {
+      const now = performance.now()
+      const face = localFace.current
+      if (document.hidden || (face && now - face.detectedAt > 250) || !practicePose.matches(face)) {
+        resetHold()
+        return
+      }
+      heldSince ??= now
+      const remaining = PRACTICE_HOLD_MS - (now - heldSince)
+      if (remaining <= 0) {
+        window.clearInterval(timer)
+        setHoldSeconds(null)
+        setPracticeStep(practiceStep + 1)
+        return
+      }
+      setHoldSeconds(Math.ceil(remaining / 1000))
+    }, 100)
+    document.addEventListener('visibilitychange', resetHold)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', resetHold)
+    }
+  }, [camera, practicePose, practiceStep])
+
+  const joinPair = () => {
+    try {
+      localStorage.setItem(practiceKey, 'complete')
+    } catch {
+      // Continue in this tab when browser storage is unavailable.
+    }
+    setJoined(true)
+  }
+
   const readFlower = (): TwinState => {
     const now = performance.now()
     const { openness: partnerOpenness, glow: partnerGlow, received } = partner.current
     const connected = now - received <= SIGNAL_TIMEOUT
-    const targetOpenness = selfPreview ? opennessFor(localFace.current) : connected ? partnerOpenness : 0
-    const targetGlow = selfPreview ? glowFor(localFace.current?.size ?? 0) : connected ? partnerGlow : 0
+    const targetOpenness = useOwnCamera ? opennessFor(localFace.current) : connected ? partnerOpenness : 0
+    const targetGlow = useOwnCamera ? glowFor(localFace.current?.size ?? 0) : connected ? partnerGlow : 0
     const { openness, glow, updated } = bloom.current
     const decay = Math.exp(-Math.min(now - updated, 100) / BLOOM_RESPONSE_MS)
     const next = targetOpenness + (openness - targetOpenness) * decay
@@ -176,6 +253,10 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
 
   const centered = trackedFace !== null && Math.abs(trackedFace.horizontalPosition - 0.5) <= CENTER_TOLERANCE
   const onTarget = centered && trackedFace.size >= FULL_BLOOM_FACE_SIZE
+  const guideOnTarget = practicing ? holdSeconds !== null : onTarget
+  const cameraPrompt = practicing
+    ? holdSeconds !== null ? `Observe the flower for ${holdSeconds}s` : practicePose?.cameraPrompt
+    : onTarget ? 'Full bloom position' : centered ? 'Move closer' : 'Center your face'
 
   return (
     <main className="fixed inset-0 bg-[#0d0e11] text-[#f5f1f8]" aria-label={`Flower ${seat.toUpperCase()}`}>
@@ -184,54 +265,74 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
         getState={readFlower}
         getWeather={studioLook}
         disableFog
+        cameraTargetY={0.95}
+        stemHeightScale={0.9}
         floorDepthRadius={WEATHER_CONFIG.presence.floorDepthRadius}
       />
-      {(selfPreview || connection) && (
-        <p role="status" className="absolute top-4 left-4 rounded-md bg-black/75 px-3 py-2 text-sm">
-          {selfPreview ? 'Local camera preview' : connection}
-        </p>
-      )}
-      <aside className="absolute right-4 bottom-4 w-36 overflow-hidden rounded-lg border border-white/20 bg-[#161319] shadow-lg sm:w-48" aria-label="Your camera">
-        <video ref={video} autoPlay muted playsInline aria-label="Your camera preview" className={`aspect-[4/3] w-full -scale-x-100 object-cover ${camera === 'on' ? 'block' : 'hidden'}`} />
-        {camera === 'on' && trackedFace && (
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 size-full -scale-x-100"
-            viewBox={`0 0 ${trackedFace.frameWidth} ${trackedFace.frameHeight}`}
-            preserveAspectRatio="xMidYMid slice"
-          >
-            <rect
-              x={trackedFace.headBox.originX}
-              y={trackedFace.headBox.originY}
-              width={trackedFace.headBox.width}
-              height={trackedFace.headBox.height}
-              fill="none"
-              stroke="#a7f3d0"
-              strokeWidth={2}
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
+      <div className={practicing ? 'absolute inset-x-2 top-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 sm:gap-3' : 'contents'}>
+        {practicePose && (
+          <section aria-labelledby="flower-practice-title" className="col-start-1 row-start-1 w-full min-w-0 max-w-56 justify-self-end space-y-2 rounded-lg bg-black/85 p-2 text-sm leading-snug sm:p-4 sm:text-base">
+            <h1 id="flower-practice-title" className="font-medium sm:text-lg">Flower practice</h1>
+            <p>{practicePose.instruction}</p>
+            {camera !== 'on' && <p className="text-[#ccc5d1]">Enable your camera.</p>}
+          </section>
         )}
-        {camera === 'on' && (
-          <div className="pointer-events-none absolute inset-0">
-            <div
+        {!practicing && (selfPreview || connection) && (
+          <p role="status" className="absolute bottom-4 left-4 rounded-md bg-black/75 px-3 py-2 text-sm">
+            {selfPreview ? 'Local camera preview' : connection}
+          </p>
+        )}
+        <aside className={`w-[40vw] max-w-60 overflow-hidden rounded-lg border border-white/20 bg-[#161319] shadow-lg ${practicing ? 'relative col-start-2 row-start-1' : 'absolute top-4 left-1/2 -translate-x-1/2'}`} aria-label="Your camera">
+          <video ref={video} autoPlay muted playsInline aria-label="Your camera preview" className={`aspect-[4/3] w-full -scale-x-100 object-cover ${camera === 'on' ? 'block' : 'hidden'}`} />
+          {camera === 'on' && trackedFace && (
+            <svg
               aria-hidden="true"
-              className={`absolute inset-y-2 left-1/2 -translate-x-1/2 border-l border-dashed drop-shadow-[0_0_2px_black] ${onTarget ? 'border-emerald-300' : 'border-white'}`}
-            />
-            <p className="absolute inset-x-1 bottom-1 rounded bg-black/80 px-1 py-0.5 text-center text-xs">
-              {onTarget ? 'Full bloom position' : centered ? 'Move closer' : 'Center your face'}
-            </p>
-          </div>
-        )}
-        {camera !== 'on' && (
-          <div className="flex aspect-[4/3] flex-col items-center justify-center gap-2 p-2 text-center">
-            {cameraError && <p role="alert" className="text-xs">{cameraError}</p>}
-            {camera === 'starting' ? <p role="status" className="text-xs">Starting camera…</p> : (
-              <Button size="sm" onClick={() => { setCameraError(''); setCamera('starting') }}>Enable camera</Button>
-            )}
-          </div>
-        )}
-      </aside>
+              className="pointer-events-none absolute inset-0 size-full -scale-x-100"
+              viewBox={`0 0 ${trackedFace.frameWidth} ${trackedFace.frameHeight}`}
+              preserveAspectRatio="xMidYMid slice"
+            >
+              <rect
+                x={trackedFace.headBox.originX}
+                y={trackedFace.headBox.originY}
+                width={trackedFace.headBox.width}
+                height={trackedFace.headBox.height}
+                fill="none"
+                stroke={guideOnTarget ? '#4ade80' : '#ffffff'}
+                strokeWidth={2}
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+          )}
+          {camera === 'on' && (
+            <div className="pointer-events-none absolute inset-0">
+              <div
+                aria-hidden="true"
+                className={`absolute inset-y-2 left-1/2 -translate-x-1/2 border-l border-dashed drop-shadow-[0_0_2px_black] ${guideOnTarget ? 'border-emerald-300' : 'border-white'}`}
+              />
+              <div role={practicing ? 'status' : undefined}>
+                {cameraPrompt && (
+                  <p className="absolute inset-x-1 bottom-1 rounded bg-black/80 px-2 py-1 text-center text-sm font-medium tabular-nums sm:text-base">{cameraPrompt}</p>
+                )}
+              </div>
+            </div>
+          )}
+          {camera !== 'on' && (
+            <div className="flex aspect-[4/3] flex-col items-center justify-center gap-2 p-2 text-center">
+              {cameraError && <p role="alert" className="text-sm">{cameraError}</p>}
+              {camera === 'starting' ? <p role="status" className="text-sm">Starting camera…</p> : (
+                <Button size="sm" onClick={() => { setCameraError(''); setCamera('starting') }}>Enable camera</Button>
+              )}
+            </div>
+          )}
+        </aside>
+      </div>
+      {practicing && !practicePose && (
+        <div className="absolute inset-0 grid place-items-center bg-black/65">
+          <Button size="lg" className="scale-200" onClick={joinPair}>
+            Start the test
+          </Button>
+        </div>
+      )}
     </main>
   )
 }

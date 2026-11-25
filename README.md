@@ -249,7 +249,9 @@ You can also try both seats on `localhost` on a single computer.
 
 1. Copy the Flower B link and open it on the second computer.
 2. Open Flower A on the first computer.
-3. Enable the camera on both screens. Move left or right to change how far the
+3. Enable the camera on both screens. On first use of each link, follow the
+   practice prompts and hold each position for five seconds, then select
+   **Start the test**. Move left or right to change how far the
    other screen's flower opens, and move closer or farther to change its glow.
 
 MediaPipe runs in each browser. Supabase relays the seat, a face-present
