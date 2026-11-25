@@ -137,6 +137,7 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
         form="plant"
         getState={readFlower}
         getWeather={studioLook}
+        disableFog
         floorDepthRadius={WEATHER_CONFIG.presence.floorDepthRadius}
       />
       {connection && <p role="status" className="absolute top-4 left-4 rounded-md bg-black/75 px-3 py-2 text-sm">{connection}</p>}

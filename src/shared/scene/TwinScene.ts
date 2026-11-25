@@ -22,6 +22,7 @@ export interface TwinSceneOptions {
   leafWidthScale?: number
   leafRotationOffset?: number
   floorDepthRadius?: number
+  disableFog?: boolean
   /** Extra floor in front of the stage, toward the camera (the back edge stays put). */
   floorFrontExtend?: number
 }
@@ -111,7 +112,8 @@ export class TwinScene {
     container.appendChild(this.renderer.domElement)
 
     this.scene.background = new THREE.Color(BACKGROUND)
-    this.scene.fog = new THREE.Fog(BACKGROUND, 5, 11)
+    const fog = new THREE.Fog(BACKGROUND, 5, 11)
+    this.scene.fog = options.disableFog ? null : fog
     const pmrem = new THREE.PMREMGenerator(this.renderer)
     const room = new RoomEnvironment()
     const envMap = pmrem.fromScene(room, 0.04).texture
@@ -195,7 +197,7 @@ export class TwinScene {
     this.disposables.push(this.form)
 
     if (this.getWeather) {
-      this.weather = new WeatherLayer(this.scene, this.scene.background as THREE.Color, this.scene.fog as THREE.Fog, this.floorMaterial.color)
+      this.weather = new WeatherLayer(this.scene, this.scene.background as THREE.Color, fog, this.floorMaterial.color)
       this.disposables.push(this.weather)
       this.weatherSpotlight = new THREE.SpotLight(0xffffff, 12, 0, 0.65, 0.9)
       this.skyFill = new THREE.HemisphereLight(0xe9f1ff, 0xb3a898, 0.3)

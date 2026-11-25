@@ -174,6 +174,7 @@ export class WeatherLayer {
   private baseFloor: THREE.Color
   private baseEnvironmentIntensity: number
   private baseFog: { near: number; far: number }
+  private readonly fog: THREE.Fog
   /** Moves the fog away from the camera by this much, when the camera is pulled back. */
   fogShift = 0
   private time = 0
@@ -181,6 +182,7 @@ export class WeatherLayer {
   private flashUntil = -1
 
   constructor(scene: THREE.Scene, background: THREE.Color, fog: THREE.Fog, floor: THREE.Color) {
+    this.fog = fog
     this.skyMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(2, 2),
       new THREE.ShaderMaterial({
@@ -313,7 +315,7 @@ export class WeatherLayer {
    */
   apply(look: WeatherLook | null, t: WeatherTargets, dt: number): number {
     this.time += dt
-    const fog = t.scene.fog as THREE.Fog
+    const fog = this.fog
     const background = t.scene.background as THREE.Color
     this.skyMesh.material.uniforms.studio.value = !look
     if (!look) {
