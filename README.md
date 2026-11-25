@@ -130,6 +130,8 @@ Env var names have the `VITE_` prefix because Vite only exposes those to the bro
 
 ## Running a session
 
+Open `/intro` on the app's domain to show the two-flower explainer by itself. Viewers can replay it, and the page does not save study data.
+
 1. Open `/?admin=1` and sign in with your researcher account.
 2. In **New session**, enter a participant code and choose **Form** or **Weather**.
    - **Form** preselects plant-first or orb-first to balance the groups. You can override the order.

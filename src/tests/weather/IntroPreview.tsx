@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Screen } from '@/shared/components/Screen'
 import { IntroScreen } from './components/IntroScreen'
 
-/** `?test=intro`: just the Weather test intro, on repeat. Nothing is logged. */
+/** Standalone Weather test intro with replay. Nothing is logged. */
 export function IntroPreview() {
   const [run, setRun] = useState(0)
   const [finished, setFinished] = useState(false)
