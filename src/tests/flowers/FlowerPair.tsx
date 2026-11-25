@@ -8,7 +8,6 @@ import { startFaceTracking, type TrackedFace } from './faceTracking'
 
 type Seat = 'a' | 'b'
 type FlowerMode = 'pair' | 'observe'
-type PracticeProgress = { step: number; holdSeconds: number | null }
 const SIGNAL_INTERVAL = 125
 const SIGNAL_TIMEOUT = 2000
 const BLOOM_RESPONSE_MS = 160
@@ -23,28 +22,24 @@ const MAX_PETAL_OPENNESS = 1.23
 const PEAK_CENTER_GLOW = 6
 const SHAKE_START_GLOW = 0.75
 const PRACTICE_HOLD_MS = 5000
-const PRACTICE_POSES: { instruction: string; observerInstruction: string; cameraPrompt: string; matches: (face: TrackedFace | null) => boolean }[] = [
+const PRACTICE_POSES: { instruction: string; cameraPrompt: string; matches: (face: TrackedFace | null) => boolean }[] = [
   {
     instruction: 'Move back to close the petals.',
-    observerInstruction: 'Watch the petals close as the controller moves back.',
     cameraPrompt: 'Move back',
     matches: (face) => face !== null && face.size <= (FAR_FACE_SIZE + FULL_BLOOM_FACE_SIZE) / 2,
   },
   {
     instruction: 'Move left or right.',
-    observerInstruction: 'Watch the flower as the controller moves to one side.',
     cameraPrompt: 'Move left or right',
     matches: (face) => face !== null && Math.abs(face.horizontalPosition - 0.5) >= 0.25,
   },
   {
     instruction: 'Center your face and move very close.',
-    observerInstruction: 'Watch the petals spread and shake as the controller moves closer.',
     cameraPrompt: 'Center and move closer',
     matches: (face) => face !== null && Math.abs(face.horizontalPosition - 0.5) <= 0.15 && glowFor(face.size) >= SHAKE_START_GLOW,
   },
   {
     instruction: 'Step completely out of the frame.',
-    observerInstruction: 'Watch the flower close as the controller leaves the frame.',
     cameraPrompt: 'Leave the frame',
     matches: (face) => face === null,
   },
@@ -93,7 +88,7 @@ function PairSetup({ mode }: { mode: FlowerMode }) {
         {supabase ? (
           <>
             <p className="text-[#ccc5d1]">{observe
-              ? 'Open the controller link on the computer with the camera. Share the observer link with the other participant.'
+              ? 'Open the controller link and share the observer link. Both participants use a camera for practice.'
               : 'Open Flower A here and share the Flower B link with your partner.'}</p>
             <div className="flex flex-wrap gap-3">
               <a className="rounded-md bg-[#eee4f7] px-4 py-2 text-[#17111c]" href={link('a')}>{observe ? 'Open controller' : 'Open Flower A'}</a>
@@ -115,12 +110,11 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
   const [joined, setJoined] = useState(false)
   const [practiceStep, setPracticeStep] = useState(0)
   const [holdSeconds, setHoldSeconds] = useState<number | null>(null)
-  const practicing = !observer && !selfPreview && !joined
+  const practicing = !selfPreview && !joined
   const practicePose = practicing ? PRACTICE_POSES[practiceStep] : undefined
-  const practiceProgress = useRef<PracticeProgress | null>(null)
-  const [observerPractice, setObserverPractice] = useState<PracticeProgress | null>(null)
   const useOwnCamera = controller || selfPreview || practicing
-  const connectToRoom = !selfPreview && (!practicing || controller)
+  const connectToRoom = !selfPreview && !practicing
+  const showCamera = !observer || practicing
   const waitingForSignal = observer ? 'Waiting for the controller…' : 'Waiting for the other flower…'
   const video = useRef<HTMLVideoElement>(null)
   const localFace = useRef<TrackedFace | null>(null)
@@ -130,10 +124,6 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
   const [trackedFace, setTrackedFace] = useState<TrackedFace | null>(null)
   const [cameraError, setCameraError] = useState('')
   const bloom = useRef({ openness: 0, glow: 0, updated: 0 })
-
-  useEffect(() => {
-    if (controller) practiceProgress.current = practicing ? { step: practiceStep, holdSeconds } : null
-  }, [controller, practicing, practiceStep, holdSeconds])
 
   useEffect(() => {
     if (!connectToRoom) return
@@ -149,17 +139,6 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
           : Number(payload.present)
         const glow = Number.isFinite(payload.glow) ? Math.min(1, Math.max(0, payload.glow)) : Math.min(1, openness)
         partner.current = { openness, glow, received: performance.now() }
-        if (observer) {
-          const progress = payload.practice
-          setObserverPractice((current) => {
-            if (!Number.isInteger(progress?.step) || progress.step < 0 || progress.step > PRACTICE_POSES.length) return null
-            const remaining = progress.holdSeconds
-            const holdSeconds = Number.isInteger(remaining) && remaining >= 1 && remaining <= PRACTICE_HOLD_MS / 1000 ? remaining : null
-            return current && current.step === progress.step && current.holdSeconds === holdSeconds
-              ? current
-              : { step: progress.step, holdSeconds }
-          })
-        }
         setConnection('')
       })
       .subscribe((status) => {
@@ -176,7 +155,6 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
       if (!subscribed) return
       if (!controller && performance.now() - partner.current.received > SIGNAL_TIMEOUT) {
         setConnection(waitingForSignal)
-        if (observer) setObserverPractice(null)
       }
       if (observer) return
       const face = document.hidden ? null : localFace.current
@@ -188,7 +166,6 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
           present: face !== null,
           openness: opennessFor(face),
           glow: glowFor(face?.size ?? 0),
-          practice: controller ? practiceProgress.current : undefined,
         },
       })
     }, SIGNAL_INTERVAL)
@@ -201,7 +178,7 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
     }
   }, [room, seat, mode, connectToRoom, controller, observer, waitingForSignal])
 
-  const cameraRequested = !observer && camera !== 'off'
+  const cameraRequested = showCamera && camera !== 'off'
   useEffect(() => {
     if (!cameraRequested || !video.current) return
     const controller = new AbortController()
@@ -282,7 +259,6 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
   const cameraPrompt = practicing
     ? holdSeconds !== null ? `Observe the flower for ${holdSeconds}s` : practicePose?.cameraPrompt
     : onTarget ? 'Full bloom position' : centered ? 'Move closer' : 'Center your face'
-  const observerPose = observerPractice && PRACTICE_POSES[observerPractice.step]
 
   return (
     <main className="fixed inset-0 bg-[#0d0e11] text-[#f5f1f8]" aria-label={observe ? observer ? 'Observer flower' : 'Controller flower' : `Flower ${seat.toUpperCase()}`}>
@@ -296,15 +272,6 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
         stemHeightScale={0.9}
         floorDepthRadius={WEATHER_CONFIG.presence.floorDepthRadius}
       />
-      {observerPractice && (
-        <section aria-labelledby="observe-practice-title" className="absolute inset-x-4 top-4 mx-auto max-w-sm space-y-2 rounded-lg bg-black/85 p-4 text-center">
-          <h1 id="observe-practice-title" className="font-medium">Flower practice</h1>
-          <p>{observerPose?.observerInstruction ?? 'Practice complete. The controller will start the test.'}</p>
-          <p role="status" className="text-sm tabular-nums">
-            {observerPractice.holdSeconds !== null && `Observe the flower for ${observerPractice.holdSeconds}s`}
-          </p>
-        </section>
-      )}
       <div className={practicing ? 'absolute inset-x-2 top-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 sm:gap-3' : 'contents'}>
         {practicePose && (
           <section aria-labelledby="flower-practice-title" className="col-start-1 row-start-1 w-full min-w-0 max-w-56 justify-self-end space-y-2 rounded-lg bg-black/85 p-2 text-sm leading-snug sm:p-4 sm:text-base">
@@ -318,7 +285,7 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
             {selfPreview ? 'Local camera preview' : connection}
           </p>
         )}
-        {!observer && (
+        {showCamera && (
           <aside className={`w-[40vw] max-w-60 overflow-hidden rounded-lg border border-white/20 bg-[#161319] shadow-lg ${practicing ? 'relative col-start-2 row-start-1' : 'absolute top-4 left-1/2 -translate-x-1/2'}`} aria-label="Your camera">
             <video ref={video} autoPlay muted playsInline aria-label="Your camera preview" className={`aspect-[4/3] w-full -scale-x-100 object-cover ${camera === 'on' ? 'block' : 'hidden'}`} />
             {camera === 'on' && trackedFace && (
