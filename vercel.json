@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/intro", "destination": "/" }
+    { "source": "/intro", "destination": "/" },
+    { "source": "/observe", "destination": "/" }
   ]
 }

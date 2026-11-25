@@ -258,3 +258,11 @@ MediaPipe runs in each browser. Supabase relays the seat, a face-present
 boolean, and the petal and glow levels based on the largest face in the frame.
 Camera frames stay on the computer that captured them. The browser
 downloads the MediaPipe runtime and face detector model on first use.
+
+## Observe test
+
+Open `/observe` on the same deployment and share the observer link from that
+page. The controller enables their camera and runs through the four practice
+movements. The observer sees the same flower response, prompts, and countdown
+without camera access. When the controller selects **Start the test**, both
+screens enter the live test, with the controller's movements driving both flowers.

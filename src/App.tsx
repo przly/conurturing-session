@@ -20,12 +20,15 @@ const FlowerPair = lazy(() => import('@/tests/flowers/FlowerPair'))
  *    `?lab=weather` weather look tuning (plant + debug panel, no session)
  *  - `?session=<id>` asks the database which test the session runs
  *  - `?test=flowers` live flower pairing
+ *  - `/observe` one camera controls two flowers
  *  - `?test=weather` local Weather test preview (nothing saved)
  *  - `/intro` only the Weather test intro (also available at `?test=intro`)
  *  - anything else: the Form test, exactly as before
  */
 export default function App() {
-  if (window.location.pathname.replace(/\/$/, '') === '/intro') return <IntroPreview />
+  const path = window.location.pathname.replace(/\/$/, '')
+  if (path === '/intro') return <IntroPreview />
+  if (path === '/observe') return <Suspense fallback={null}><FlowerPair mode="observe" /></Suspense>
   if (URL_PARAMS.admin) return <AdminApp />
   if (URL_PARAMS.compare) return <CompareView />
   if (URL_PARAMS.lab) return <WeatherLab />
