@@ -29,6 +29,8 @@ export interface TwinSceneOptions {
 
 /** Dim, neutral room so the glow reads clearly and nothing hints at nature. */
 const BACKGROUND = '#0d0e11'
+const LIVE_FLOWER_STUDIO_BACKGROUND = '#292531'
+const LIVE_FLOWER_CENTER_COLOR = '#6e381b'
 const ENVIRONMENT_INTENSITY = 0.35
 const EXPOSURE = 1
 const SUNLIGHT = new THREE.Color('#fff0d8')
@@ -359,8 +361,8 @@ export class TwinScene {
       const targets = { material: this.material, body: this.bodyMaterial, pool: this.poolMaterial, floor: this.floorMaterial, scene: this.scene }
       const look = this.getWeather!()
       this.floorFogStrength.value = look ? 0.25 : 1
-      const exposure = this.weather.apply(look, targets, dt)
       const studioCenterGlow = !look && state.flowerCenterGlow !== undefined
+      const exposure = this.weather.apply(look, targets, dt, studioCenterGlow ? LIVE_FLOWER_STUDIO_BACKGROUND : undefined)
       this.bloom.enabled = look !== null || studioCenterGlow
       this.updateLighting(look)
       this.weatherLeaves?.color.copy(this.bodyMaterial.color)
@@ -394,7 +396,10 @@ export class TwinScene {
       this.poolMaterial.color.lerp(SNOW_CENTER_COLOR, snow)
       const stormGlow = THREE.MathUtils.lerp(1, 0.6, storm)
       this.material.emissiveIntensity *= WEATHER_CONFIG.visuals.flowerCenterGlow * openness * openness * stormGlow * (1 + 0.8 * lightning)
-      if (state.flowerCenterGlow !== undefined) this.material.emissiveIntensity = state.flowerCenterGlow
+      if (state.flowerCenterGlow !== undefined) {
+        this.material.color.set(LIVE_FLOWER_CENTER_COLOR)
+        this.material.emissiveIntensity = state.flowerCenterGlow
+      }
     }
     this.backdrop?.update(this.camera, this.container.clientWidth)
     this.form.update(e, this.weather?.current ?? undefined)

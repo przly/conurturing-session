@@ -272,12 +272,13 @@ export function createPlant(
       const presence = e.headOpenness !== undefined
       const bodyOpenness = presence ? 1 : e.openness
       const petalOpenness = (e.headOpenness ?? e.openness) * (1 - 0.45 * startle)
-      if (closedCenterLift) center.position.y = closedCenterLift * (1 - petalOpenness)
+      const closure = Math.max(0, 1 - petalOpenness)
+      if (closedCenterLift) center.position.y = closedCenterLift * closure
       if (openPetalPositions) {
         const reveal = THREE.MathUtils.smoothstep(petalOpenness, 0.06, 0.4)
         center.visible = reveal > 0
         center.scale.set(reveal, 0.8 * reveal, reveal)
-        const curl = closedPetalCurl * (1 - petalOpenness) ** 2
+        const curl = closedPetalCurl * closure ** 2
         if (curl !== lastCurl) {
           for (let i = 0; i < petalPositions.count; i++) {
             const x = openPetalPositions.getX(i)
@@ -336,8 +337,9 @@ export function createPlant(
         const recovery = 1 - THREE.MathUtils.smoothstep(sinceDrop, 0.16, 0.85)
         const rainDip = 5 * rain * petalOpenness * dip * recovery
         const shiver = coldTuck + 2.5 * tremble * Math.sin(shiverBeat + petal.phase * 0.25)
+        const shake = 1.5 * (e.petalShake ?? 0) * Math.sin(e.time * Math.PI * 8 + petal.phase)
         petal.elevation.rotation.z =
-          (lerp(PLANT.petalClosedDeg, PLANT.petalOpenDeg, petalOpenness) + wave * PLANT.petalPulseDeg + idle * 2 - rainDip + shiver) * DEG
+          (lerp(PLANT.petalClosedDeg, PLANT.petalOpenDeg, petalOpenness) + wave * PLANT.petalPulseDeg + idle * 2 - rainDip + shiver + shake) * DEG
       }
       head.scale.setScalar(lerp(PLANT.headMinScale, 1, bodyOpenness))
     },

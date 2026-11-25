@@ -1,12 +1,20 @@
-import type { FaceDetector } from '@mediapipe/tasks-vision'
+import type { BoundingBox, FaceDetector } from '@mediapipe/tasks-vision'
 
 const WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'
 const MODEL = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'
 
+export interface TrackedFace {
+  size: number
+  horizontalPosition: number
+  headBox: Pick<BoundingBox, 'originX' | 'originY' | 'width' | 'height'>
+  frameWidth: number
+  frameHeight: number
+}
+
 export function startFaceTracking(
   video: HTMLVideoElement,
   signal: AbortSignal,
-  onFace: (openness: number) => void,
+  onFace: (face: TrackedFace | null) => void,
   onError: (message: string) => void,
 ) {
   let stream: MediaStream | undefined
@@ -14,7 +22,7 @@ export function startFaceTracking(
   let timer: number | undefined
   let lastVideoTime = -1
   let lastFace = -Infinity
-  let openness = 0
+  let face: TrackedFace | null = null
 
   const stop = () => {
     window.clearInterval(timer)
@@ -57,28 +65,46 @@ export function startFaceTracking(
       detector = await FaceDetector.createFromOptions(files, {
         baseOptions: { modelAssetPath: MODEL },
         runningMode: 'VIDEO',
-        minDetectionConfidence: 0.6,
+        minDetectionConfidence: 0.5,
       })
       if (signal.aborted) return stop()
-      onFace(0)
+      onFace(null)
       timer = window.setInterval(() => {
         const now = performance.now()
         try {
           if (detector && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.currentTime !== lastVideoTime) {
             lastVideoTime = video.currentTime
             let largestArea = 0
+            let box: BoundingBox | undefined
             for (const { boundingBox } of detector.detectForVideo(video, now).detections) {
-              if (boundingBox) largestArea = Math.max(largestArea, boundingBox.width * boundingBox.height)
+              const area = boundingBox ? boundingBox.width * boundingBox.height : 0
+              if (area > largestArea) {
+                largestArea = area
+                box = boundingBox
+              }
             }
-            const frameArea = video.videoWidth * video.videoHeight
-            if (largestArea > 0 && frameArea > 0) {
+            const frameWidth = video.videoWidth
+            const frameHeight = video.videoHeight
+            if (box && frameWidth > 0 && frameHeight > 0) {
               lastFace = now
               // Square root converts the area fraction to a relative linear size.
-              const size = Math.sqrt(largestArea / frameArea)
-              openness = Math.min(1, Math.max(0.15, size / 0.35))
+              // Estimate the head from the face, with more room above for the forehead and hair.
+              const headBox = {
+                originX: box.originX - box.width * 0.15,
+                originY: box.originY - box.height * 0.35,
+                width: box.width * 1.3,
+                height: box.height * 1.4,
+              }
+              face = {
+                headBox,
+                frameWidth,
+                frameHeight,
+                size: Math.sqrt(largestArea / (frameWidth * frameHeight)),
+                horizontalPosition: (box.originX + box.width / 2) / frameWidth,
+              }
             }
           }
-          onFace(now - lastFace < 400 ? openness : 0)
+          onFace(now - lastFace < 400 ? face : null)
         } catch {
           fail('Face tracking stopped. Try again.')
         }

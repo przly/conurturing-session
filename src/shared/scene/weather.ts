@@ -313,13 +313,13 @@ export class WeatherLayer {
    * Call after the shared glow has been applied. Returns the exposure
    * multiplier for this frame (1 unless flickering).
    */
-  apply(look: WeatherLook | null, t: WeatherTargets, dt: number): number {
+  apply(look: WeatherLook | null, t: WeatherTargets, dt: number, studioBackground = '#f4f2ee'): number {
     this.time += dt
     const fog = this.fog
     const background = t.scene.background as THREE.Color
     this.skyMesh.material.uniforms.studio.value = !look
     if (!look) {
-      background.set('#f4f2ee')
+      background.set(studioBackground)
       t.floor.color.copy(background)
       t.floor.emissive.copy(background)
       t.floor.emissiveIntensity = 0.46

@@ -66,6 +66,7 @@ export interface Expression {
   /** Seconds since the scene started (for per-part phase offsets). */
   time: number
   headOpenness?: number
+  petalShake?: number
 }
 
 /** Health → openness, so both forms use the same normalised range. */
@@ -94,6 +95,7 @@ export class ExpressionDriver {
     const idleAmount = LOOK.idleMinAmount + (1 - LOOK.idleMinAmount) * v.openness
     v.idle = Math.sin(v.time * Math.PI * 2 * LOOK.idleHz) * idleAmount
     v.headOpenness = state.headOpenness
+    v.petalShake = state.petalShake
     v.pulseWave = Math.sin(v.time * Math.PI * 2 * LOOK.pulseHz) * v.pulse
     return v
   }
