@@ -251,6 +251,8 @@ export class WeatherLayer {
             float top = smoothstep(0.55, 1.0, skyUv.y);
             if (studio) {
               gl_FragColor = vec4(skyColor * (1.0 - 0.17 * top), 1.0);
+              #include <tonemapping_fragment>
+              #include <colorspace_fragment>
               return;
             }
             float radius = length(vec2(skyUv.x * aspect, 1.0 - skyUv.y));

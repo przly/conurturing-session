@@ -265,6 +265,7 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
         getState={readFlower}
         getWeather={studioLook}
         disableFog
+        disablePostProcessing
         cameraTargetY={0.95}
         stemHeightScale={0.9}
         floorDepthRadius={WEATHER_CONFIG.presence.floorDepthRadius}

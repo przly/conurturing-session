@@ -23,6 +23,7 @@ export interface TwinSceneOptions {
   leafRotationOffset?: number
   floorDepthRadius?: number
   disableFog?: boolean
+  disablePostProcessing?: boolean
   cameraTargetY?: number
   stemHeightScale?: number
   /** Extra floor in front of the stage, toward the camera (the back edge stays put). */
@@ -72,8 +73,8 @@ export class TwinScene {
 
   private backdrop?: VideoBackdrop
   private renderer: THREE.WebGLRenderer
-  private composer: EffectComposer
-  private bloom: UnrealBloomPass
+  private composer?: EffectComposer
+  private bloom?: UnrealBloomPass
   private scene = new THREE.Scene()
   private camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100)
   private material = createSharedMaterial()
@@ -226,20 +227,22 @@ export class TwinScene {
       this.disposables.push(this.weatherSpotlight, this.skyFill)
     }
 
-    this.composer = new EffectComposer(this.renderer)
-    // Canvas antialiasing does not apply when the scene renders into the composer.
-    const samples = Math.min(4, this.renderer.capabilities.maxSamples)
-    this.composer.renderTarget1.samples = samples
-    this.composer.renderTarget2.samples = samples
-    this.composer.addPass(new RenderPass(this.scene, this.camera))
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), BLOOM.strength, BLOOM.radius, BLOOM.threshold)
-    this.composer.addPass(this.bloom)
-    if (this.getWeather) {
-      const diffusion = new ShaderPass(softDiffusionShader)
-      this.composer.addPass(diffusion)
-      this.disposables.push(diffusion)
+    if (!options.disablePostProcessing) {
+      this.composer = new EffectComposer(this.renderer)
+      // Canvas antialiasing does not apply when the scene renders into the composer.
+      const samples = Math.min(4, this.renderer.capabilities.maxSamples)
+      this.composer.renderTarget1.samples = samples
+      this.composer.renderTarget2.samples = samples
+      this.composer.addPass(new RenderPass(this.scene, this.camera))
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), BLOOM.strength, BLOOM.radius, BLOOM.threshold)
+      this.composer.addPass(this.bloom)
+      if (this.getWeather) {
+        const diffusion = new ShaderPass(softDiffusionShader)
+        this.composer.addPass(diffusion)
+        this.disposables.push(diffusion)
+      }
+      this.composer.addPass(new OutputPass())
     }
-    this.composer.addPass(new OutputPass())
 
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(container)
@@ -251,8 +254,8 @@ export class TwinScene {
     cancelAnimationFrame(this.frame)
     this.resizeObserver.disconnect()
     this.disposables.forEach((d) => d.dispose())
-    this.bloom.dispose()
-    this.composer.dispose()
+    this.bloom?.dispose()
+    this.composer?.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()
   }
@@ -368,21 +371,23 @@ export class TwinScene {
       this.floorFogStrength.value = look ? 0.25 : 1
       const studioCenterGlow = !look && state.flowerCenterGlow !== undefined
       const exposure = this.weather.apply(look, targets, dt, studioCenterGlow ? LIVE_FLOWER_STUDIO_BACKGROUND : undefined)
-      this.bloom.enabled = look !== null || studioCenterGlow
       this.updateLighting(look)
       this.weatherLeaves?.color.copy(this.bodyMaterial.color)
       if (!look) {
         this.material.emissiveIntensity = 0
         this.poolMaterial.opacity = 0
       }
-      this.bloom.threshold = THREE.MathUtils.lerp(
+      const bloomThreshold = studioCenterGlow ? 0.85 : THREE.MathUtils.lerp(
         BLOOM.threshold,
         WEATHER_CONFIG.visuals.day.bloomThreshold,
         look ? 1 - look.night : 0,
       )
-      if (studioCenterGlow) this.bloom.threshold = 0.85
+      if (this.bloom) {
+        this.bloom.enabled = look !== null || studioCenterGlow
+        this.bloom.threshold = bloomThreshold
+      }
       if (this.mattePetals) {
-        this.petalHighlightLimit.value = look ? this.bloom.threshold * 0.98 : 0.85
+        this.petalHighlightLimit.value = look ? bloomThreshold * 0.98 : 0.85
         const { day, night, petalLightIntensity } = WEATHER_CONFIG.visuals
         this.mattePetals.color.set(look ? this.petalColor : '#f4f0e7')
         this.mattePetals.envMapIntensity = look
@@ -408,14 +413,15 @@ export class TwinScene {
     }
     this.backdrop?.update(this.camera, this.container.clientWidth)
     this.form.update(e, this.weather?.current ?? undefined)
-    this.composer.render()
+    if (this.composer) this.composer.render()
+    else this.renderer.render(this.scene, this.camera)
   }
 
   private resize() {
     const { clientWidth: w, clientHeight: h } = this.container
     if (!w || !h) return
     this.renderer.setSize(w, h, false)
-    this.composer.setSize(w, h)
+    this.composer?.setSize(w, h)
     this.renderer.domElement.style.width = '100%'
     this.renderer.domElement.style.height = '100%'
     this.camera.aspect = w / h

@@ -42,6 +42,7 @@ interface TwinCanvasProps {
   leafRotationOffset?: number
   floorDepthRadius?: number
   disableFog?: boolean
+  disablePostProcessing?: boolean
   cameraTargetY?: number
   stemHeightScale?: number
   floorFrontExtend?: number
@@ -49,7 +50,7 @@ interface TwinCanvasProps {
 }
 
 /** React wrapper around the imperative Three.js scene. */
-export function TwinCanvas({ form, getState, className, style, onScene, getWeather, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog, cameraTargetY, stemHeightScale }: TwinCanvasProps) {
+export function TwinCanvas({ form, getState, className, style, onScene, getWeather, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog, disablePostProcessing, cameraTargetY, stemHeightScale }: TwinCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const getStateRef = useRef(getState)
   const getWeatherRef = useRef(getWeather)
@@ -72,7 +73,7 @@ export function TwinCanvas({ form, getState, className, style, onScene, getWeath
         containerRef.current,
         form,
         () => getStateRef.current(),
-        { getWeather: hasWeather ? () => getWeatherRef.current?.() ?? null : undefined, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog, cameraTargetY, stemHeightScale },
+        { getWeather: hasWeather ? () => getWeatherRef.current?.() ?? null : undefined, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog, disablePostProcessing, cameraTargetY, stemHeightScale },
       )
     } catch (error) {
       console.error(error)
@@ -85,7 +86,7 @@ export function TwinCanvas({ form, getState, className, style, onScene, getWeath
       onSceneRef.current?.(null)
       scene.dispose()
     }
-  }, [SceneConstructor, form, hasWeather, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog, cameraTargetY, stemHeightScale])
+  }, [SceneConstructor, form, hasWeather, backdrop, petalColor, petalWidthScale, leafWidthScale, leafRotationOffset, floorDepthRadius, floorFrontExtend, disableFog, disablePostProcessing, cameraTargetY, stemHeightScale])
 
   return (
     <div ref={containerRef} aria-hidden="true" className={cn('size-full', className)} style={style}>
