@@ -49,8 +49,8 @@ function PairSetup() {
 
 function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
   const video = useRef<HTMLVideoElement>(null)
-  const localFace = useRef(false)
-  const partner = useRef({ present: false, received: -Infinity })
+  const localFace = useRef(0)
+  const partner = useRef({ openness: 0, received: -Infinity })
   const [connection, setConnection] = useState(supabase ? 'Connecting flowers…' : 'Set up the Supabase connection to pair flowers.')
   const [camera, setCamera] = useState<'off' | 'starting' | 'on'>('off')
   const [cameraError, setCameraError] = useState('')
@@ -64,7 +64,10 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
     const connect = () => client.channel(`flower-pair-${room}`)
       .on('broadcast', { event: 'face' }, ({ payload }) => {
         if (!active || payload?.seat !== (seat === 'a' ? 'b' : 'a') || typeof payload.present !== 'boolean') return
-        partner.current = { present: payload.present, received: performance.now() }
+        const openness = Number.isFinite(payload.openness)
+          ? Math.min(1, Math.max(0, payload.openness))
+          : Number(payload.present)
+        partner.current = { openness, received: performance.now() }
         setConnection('')
       })
       .subscribe((status) => {
@@ -80,7 +83,8 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
     const timer = window.setInterval(() => {
       if (!subscribed) return
       if (performance.now() - partner.current.received > SIGNAL_TIMEOUT) setConnection('Waiting for the other flower…')
-      void channel?.send({ type: 'broadcast', event: 'face', payload: { seat, present: localFace.current && !document.hidden } })
+      const openness = document.hidden ? 0 : localFace.current
+      void channel?.send({ type: 'broadcast', event: 'face', payload: { seat, present: openness > 0, openness } })
     }, SIGNAL_INTERVAL)
     return () => {
       active = false
@@ -95,24 +99,24 @@ function FlowerStage({ room, seat }: { room: string; seat: Seat }) {
   useEffect(() => {
     if (!cameraRequested || !video.current) return
     const controller = new AbortController()
-    startFaceTracking(video.current, controller.signal, (present) => {
-      localFace.current = present
+    startFaceTracking(video.current, controller.signal, (openness) => {
+      localFace.current = openness
       setCamera('on')
     }, (message) => {
-      localFace.current = false
+      localFace.current = 0
       setCameraError(message)
       setCamera('off')
     })
     return () => {
-      localFace.current = false
+      localFace.current = 0
       controller.abort()
     }
   }, [cameraRequested])
 
   const readFlower = (): TwinState => {
     const now = performance.now()
-    const { present, received } = partner.current
-    const target = present && now - received <= SIGNAL_TIMEOUT ? 1 : 0
+    const { openness: partnerOpenness, received } = partner.current
+    const target = now - received <= SIGNAL_TIMEOUT ? partnerOpenness : 0
     const { openness, updated } = bloom.current
     const next = target + (openness - target) * Math.exp(-Math.min(now - updated, 100) / 400)
     bloom.current = { openness: next, updated: now }

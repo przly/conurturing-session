@@ -249,9 +249,10 @@ You can also try both seats on `localhost` on a single computer.
 
 1. Copy the Flower B link and open it on the second computer.
 2. Open Flower A on the first computer.
-3. Enable the camera on both screens. Step into and out of view on each
-   computer to watch the other screen's flower open and close.
+3. Enable the camera on both screens. Move closer to and farther from either
+   camera to change how far the other screen's flower opens and how brightly it glows.
 
-MediaPipe runs in each browser. Supabase relays the seat and a face-present
-boolean. Camera frames stay on the computer that captured them. The browser
+MediaPipe runs in each browser. Supabase relays the seat, a face-present
+boolean, and the bloom level based on the largest face in the frame.
+Camera frames stay on the computer that captured them. The browser
 downloads the MediaPipe runtime and face detector model on first use.

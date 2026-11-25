@@ -6,7 +6,7 @@ const MODEL = 'https://storage.googleapis.com/mediapipe-models/face_detector/bla
 export function startFaceTracking(
   video: HTMLVideoElement,
   signal: AbortSignal,
-  onFace: (present: boolean) => void,
+  onFace: (openness: number) => void,
   onError: (message: string) => void,
 ) {
   let stream: MediaStream | undefined
@@ -14,6 +14,7 @@ export function startFaceTracking(
   let timer: number | undefined
   let lastVideoTime = -1
   let lastFace = -Infinity
+  let openness = 0
 
   const stop = () => {
     window.clearInterval(timer)
@@ -59,15 +60,25 @@ export function startFaceTracking(
         minDetectionConfidence: 0.6,
       })
       if (signal.aborted) return stop()
-      onFace(false)
+      onFace(0)
       timer = window.setInterval(() => {
         const now = performance.now()
         try {
           if (detector && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.currentTime !== lastVideoTime) {
             lastVideoTime = video.currentTime
-            if (detector.detectForVideo(video, now).detections.length) lastFace = now
+            let largestArea = 0
+            for (const { boundingBox } of detector.detectForVideo(video, now).detections) {
+              if (boundingBox) largestArea = Math.max(largestArea, boundingBox.width * boundingBox.height)
+            }
+            const frameArea = video.videoWidth * video.videoHeight
+            if (largestArea > 0 && frameArea > 0) {
+              lastFace = now
+              // Square root converts the area fraction to a relative linear size.
+              const size = Math.sqrt(largestArea / frameArea)
+              openness = Math.min(1, Math.max(0.15, size / 0.35))
+            }
           }
-          onFace(now - lastFace < 400)
+          onFace(now - lastFace < 400 ? openness : 0)
         } catch {
           fail('Face tracking stopped. Try again.')
         }
