@@ -15,6 +15,7 @@ import { STUDY_TEXT as copy } from '../text'
 
 interface IntroScreenProps {
   hometown?: string | null
+  inlineTrigger?: boolean
   onStart: () => void
   onEnd: (watched: number, skipped: boolean) => void
   onContinue: () => void
@@ -109,7 +110,7 @@ class LinkedPlant {
 }
 
 /** Live intro: two linked 3D plants side by side, each with the shadow video behind it, plus captions. */
-export function IntroScreen({ hometown, onStart, onEnd, onContinue }: IntroScreenProps) {
+export function IntroScreen({ hometown, inlineTrigger = false, onStart, onEnd, onContinue }: IntroScreenProps) {
   const [plants, setPlants] = useState<Record<Room, LinkedPlant> | null>(null)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -121,6 +122,7 @@ export function IntroScreen({ hometown, onStart, onEnd, onContinue }: IntroScree
   const voiceoverFailed = useRef(false)
   const startedAt = useRef<number | null>(null)
   const ended = useRef(false)
+  const speed = inlineTrigger ? 1 : SPEED
   const callbacks = useRef({ onStart, onEnd })
   useEffect(() => { callbacks.current = { onStart, onEnd } })
 
@@ -168,7 +170,7 @@ export function IntroScreen({ hometown, onStart, onEnd, onContinue }: IntroScree
       const usesVoiceover = voiceover && !voiceoverFailed.current && !voiceover.error
       const elapsed = usesVoiceover
         ? voiceover.currentTime
-        : watchedSec() * SPEED
+        : watchedSec() * speed
       const t = Math.min(INTRO_SCRIPT.durationSec, elapsed)
       setCaption(captionAt(t))
       for (const room of ROOMS) plants[room].sync(room, t)
@@ -183,15 +185,26 @@ export function IntroScreen({ hometown, onStart, onEnd, onContinue }: IntroScree
       cancelAnimationFrame(frame)
       voiceover?.pause()
     }
-  }, [plants, started])
+  }, [plants, started, speed])
 
   const captionText = INTRO_SCRIPT.captions[caption].text
+  const play = () => {
+    if (!plants) return
+    for (const room of ROOMS) plants[room].unlock()
+    void voiceoverRef.current?.play().catch(() => { voiceoverFailed.current = true })
+    setStarted(true)
+  }
+  const retry = () => {
+    setFailed(false)
+    setAttempt(attempt + 1)
+  }
 
-  return (
-    <div className="fixed inset-0 bg-[#0d0e11]" role="region" aria-label={copy.introTitle}>
-      {SPEED === 1 && (
-        <audio ref={voiceoverRef} src="/audio/intro-voiceover-synced.mp3" preload="auto" />
-      )}
+  const intro = (
+    <div
+      className={`pointer-events-auto fixed inset-0 bg-[#0d0e11] ${inlineTrigger ? 'z-20' : ''}`}
+      role="region"
+      aria-label={copy.introTitle}
+    >
       <div className="flex size-full">
         {plants && ROOMS.map((room, i) => (
           <div key={room} className={`relative min-w-0 flex-1 ${i ? 'border-l border-white/15' : ''}`}>
@@ -243,16 +256,12 @@ export function IntroScreen({ hometown, onStart, onEnd, onContinue }: IntroScree
         <Button
           size="lg"
           className="absolute top-1/2 left-1/2 -translate-1/2"
-          onClick={() => {
-            for (const room of ROOMS) plants[room].unlock()
-            void voiceoverRef.current?.play().catch(() => { voiceoverFailed.current = true })
-            setStarted(true)
-          }}
+          onClick={play}
         >
           {copy.playIntro}
         </Button>
       )}
-      {!done && !failed && <Button className="absolute top-4 right-4" onClick={() => finish(true)}>{copy.skipIntro}</Button>}
+      {!done && !failed && <Button className="absolute top-4 right-4" onClick={() => finish(true)}>{inlineTrigger ? 'Stop explanation' : copy.skipIntro}</Button>}
       {done && (
         <div className="absolute inset-0 grid place-items-center bg-black/50">
           <Button size="lg" onClick={onContinue}>
@@ -265,12 +274,28 @@ export function IntroScreen({ hometown, onStart, onEnd, onContinue }: IntroScree
         <div className="absolute inset-0 bg-background">
           <Screen title={copy.introTitle} description={copy.introError}>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => { setFailed(false); setAttempt(attempt + 1) }}>{copy.retry}</Button>
+              <Button onClick={retry}>{copy.retry}</Button>
               <Button variant="outline" onClick={() => finish(true)}>{copy.skipIntro}</Button>
             </div>
           </Screen>
         </div>
       )}
     </div>
+  )
+
+  return (
+    <>
+      {speed === 1 && (
+        <audio ref={voiceoverRef} src="/audio/intro-voiceover-synced.mp3" preload="auto" />
+      )}
+      {inlineTrigger && !started ? (
+        <div className="space-y-2">
+          {failed && <p role="alert" className="rounded-md bg-black/75 px-3 py-2 text-sm">{copy.introError}</p>}
+          <Button variant="outline" className="pointer-events-auto" disabled={!plants && !failed} onClick={failed ? retry : play}>
+            {failed ? copy.retry : 'Play explanation'}
+          </Button>
+        </div>
+      ) : intro}
+    </>
   )
 }

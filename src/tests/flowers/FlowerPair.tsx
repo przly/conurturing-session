@@ -4,6 +4,7 @@ import { WEATHER_CONFIG } from '@/config'
 import { TwinCanvas } from '@/shared/components/TwinCanvas'
 import { supabase } from '@/shared/data/supabase'
 import type { TwinState } from '@/shared/scene/state'
+import { IntroScreen } from '@/tests/weather/components/IntroScreen'
 import { startFaceTracking, type TrackedFace } from './faceTracking'
 
 type Seat = 'a' | 'b'
@@ -129,9 +130,7 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
   const [camera, setCamera] = useState<'off' | 'starting' | 'on'>('off')
   const [trackedFace, setTrackedFace] = useState<TrackedFace | null>(null)
   const [cameraError, setCameraError] = useState('')
-  const explanation = useRef<HTMLAudioElement>(null)
-  const [playingExplanation, setPlayingExplanation] = useState(false)
-  const [explanationError, setExplanationError] = useState(false)
+  const [explanationRun, setExplanationRun] = useState(0)
   const bloom = useRef({ openness: 0, glow: 0, updated: 0 })
 
   useEffect(() => {
@@ -297,22 +296,6 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
     setJoined(false)
   }
 
-  const toggleExplanation = () => {
-    const audio = explanation.current
-    if (!audio) return
-    if (!audio.paused) {
-      audio.pause()
-      audio.currentTime = 0
-      return
-    }
-    setExplanationError(false)
-    void audio.play().catch((error: unknown) => {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        setExplanationError(true)
-      }
-    })
-  }
-
   return (
     <main className="fixed inset-0 bg-[#0d0e11] text-[#f5f1f8]" aria-label={observe ? observer ? 'Observer flower' : 'Controller flower' : `Flower ${seat.toUpperCase()}`}>
       <TwinCanvas
@@ -387,20 +370,13 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
             </p>
           )}
           {!selfPreview && (
-            <>
-              {explanationError && <p role="alert" className="rounded-md bg-black/75 px-3 py-2 text-sm">Couldn’t play the explanation. Try again.</p>}
-              <audio
-                ref={explanation}
-                src="/audio/intro-voiceover-synced.mp3"
-                preload="none"
-                onPlay={() => setPlayingExplanation(true)}
-                onPause={() => setPlayingExplanation(false)}
-                onEnded={() => setPlayingExplanation(false)}
-              />
-              <Button variant="outline" className="pointer-events-auto" onClick={toggleExplanation}>
-                {playingExplanation ? 'Stop explanation' : 'Play explanation'}
-              </Button>
-            </>
+            <IntroScreen
+              key={explanationRun}
+              inlineTrigger
+              onStart={() => {}}
+              onEnd={() => {}}
+              onContinue={() => setExplanationRun((run) => run + 1)}
+            />
           )}
         </div>
         {!selfPreview && (!practicing || practicePose) && (
