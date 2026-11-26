@@ -22,6 +22,8 @@ interface IntroScreenProps {
 }
 
 const ROOMS = ['you', 'family'] as const
+// The flower-test recording ends in the pause before the study instructions.
+const FLOWER_EXPLANATION_DURATION_SEC = 32.5
 const { floorDepthRadius } = WEATHER_CONFIG.presence
 /** Floor reaches the bottom edge of the full-height scene. */
 const FLOOR_FRONT_EXTEND = 2
@@ -123,6 +125,7 @@ export function IntroScreen({ hometown, inlineTrigger = false, onStart, onEnd, o
   const startedAt = useRef<number | null>(null)
   const ended = useRef(false)
   const speed = inlineTrigger ? 1 : SPEED
+  const duration = inlineTrigger ? FLOWER_EXPLANATION_DURATION_SEC : INTRO_SCRIPT.durationSec
   const callbacks = useRef({ onStart, onEnd })
   useEffect(() => { callbacks.current = { onStart, onEnd } })
 
@@ -171,10 +174,10 @@ export function IntroScreen({ hometown, inlineTrigger = false, onStart, onEnd, o
       const elapsed = usesVoiceover
         ? voiceover.currentTime
         : watchedSec() * speed
-      const t = Math.min(INTRO_SCRIPT.durationSec, elapsed)
+      const t = Math.min(duration, elapsed)
       setCaption(captionAt(t))
       for (const room of ROOMS) plants[room].sync(room, t)
-      if (usesVoiceover ? voiceover.ended : t >= INTRO_SCRIPT.durationSec) {
+      if ((usesVoiceover && voiceover.ended) || ((!usesVoiceover || inlineTrigger) && t >= duration)) {
         finishRef.current(false)
         return
       }
@@ -185,7 +188,7 @@ export function IntroScreen({ hometown, inlineTrigger = false, onStart, onEnd, o
       cancelAnimationFrame(frame)
       voiceover?.pause()
     }
-  }, [plants, started, speed])
+  }, [plants, started, speed, duration, inlineTrigger])
 
   const captionText = INTRO_SCRIPT.captions[caption].text
   const play = () => {
@@ -286,7 +289,11 @@ export function IntroScreen({ hometown, inlineTrigger = false, onStart, onEnd, o
   return (
     <>
       {speed === 1 && (
-        <audio ref={voiceoverRef} src="/audio/intro-voiceover-synced.mp3" preload="auto" />
+        <audio
+          ref={voiceoverRef}
+          src={inlineTrigger ? '/audio/flower-explanation.mp3' : '/audio/intro-voiceover-synced.mp3'}
+          preload="auto"
+        />
       )}
       {inlineTrigger && !started ? (
         <div className="space-y-2">
