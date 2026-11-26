@@ -261,8 +261,10 @@ downloads the MediaPipe runtime and face detector model on first use.
 
 ## Observe test
 
-Open `/observe` on the same deployment and share the observer link from that
-page. Both participants enable their cameras and complete the four practice
+Open `/observe` on both computers using the same deployment URL. On one,
+select **Control the flower**. On the other, select **Watch the flower**.
+The shared page supports one observation pair at a time per deployment.
+Both participants enable their cameras and complete the four practice
 movements with their own flower. Each selects **Start the test** when ready.
 The observer's camera stops when they enter the live test, and the controller's
 movements drive both flowers.

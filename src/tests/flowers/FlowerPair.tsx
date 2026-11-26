@@ -70,31 +70,52 @@ export default function FlowerPair({ mode = 'pair' }: { mode?: FlowerMode }) {
   const room = params.get('room')
   const seat = params.get('seat')
 
-  if (room && /^[a-zA-Z0-9_-]{8,80}$/.test(room) && (seat === 'a' || seat === 'b')) {
-    return <FlowerStage room={room} seat={seat} mode={mode} />
+  if (seat === 'a' || seat === 'b') {
+    if (room && /^[a-zA-Z0-9_-]{8,80}$/.test(room)) {
+      return <FlowerStage room={room} seat={seat} mode={mode} />
+    }
+    if (mode === 'observe' && room === null) {
+      return <FlowerStage room={`default:${window.location.host}`} seat={seat} mode={mode} />
+    }
   }
-  return <PairSetup mode={mode} />
+  return mode === 'observe' ? <ObserveSetup /> : <PairSetup />
 }
 
-function PairSetup({ mode }: { mode: FlowerMode }) {
+function ObserveSetup() {
+  return (
+    <main className="grid min-h-dvh place-items-center bg-[#0d0e11] p-6 text-[#f5f1f8]">
+      <div className="w-full max-w-sm space-y-5">
+        <h1 className="text-3xl font-medium">Observe test</h1>
+        {supabase ? (
+          <>
+            <p className="text-[#ccc5d1]">Open this page on both computers. Choose a different role on each.</p>
+            <div className="flex flex-wrap gap-3">
+              <a className="rounded-md bg-[#eee4f7] px-4 py-2 text-[#17111c]" href="?seat=a">Control the flower</a>
+              <a className="rounded-md border border-[#8e8198] px-4 py-2" href="?seat=b">Watch the flower</a>
+            </div>
+          </>
+        ) : <p role="status">Set up the project’s Supabase connection to run the observe test.</p>}
+      </div>
+    </main>
+  )
+}
+
+function PairSetup() {
   const [room] = useState(() => Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, '0')).join(''))
-  const observe = mode === 'observe'
-  const link = (seat: Seat) => observe ? `/observe?room=${room}&seat=${seat}` : `?test=flowers&room=${room}&seat=${seat}`
+  const link = (seat: Seat) => `?test=flowers&room=${room}&seat=${seat}`
 
   return (
     <main className="grid min-h-dvh place-items-center bg-[#0d0e11] p-6 text-[#f5f1f8]">
       <div className="w-full max-w-sm space-y-5">
-        <h1 className="text-3xl font-medium">{observe ? 'Observe test' : 'Twin flowers'}</h1>
+        <h1 className="text-3xl font-medium">Twin flowers</h1>
         {supabase ? (
           <>
-            <p className="text-[#ccc5d1]">{observe
-              ? 'Open the controller link and share the observer link. Both participants use a camera for practice.'
-              : 'Open Flower A here and share the Flower B link with your partner.'}</p>
+            <p className="text-[#ccc5d1]">Open Flower A here and share the Flower B link with your partner.</p>
             <div className="flex flex-wrap gap-3">
-              <a className="rounded-md bg-[#eee4f7] px-4 py-2 text-[#17111c]" href={link('a')}>{observe ? 'Open controller' : 'Open Flower A'}</a>
-              <a className="rounded-md border border-[#8e8198] px-4 py-2" href={link('b')}>{observe ? 'Open observer' : 'Flower B link'}</a>
+              <a className="rounded-md bg-[#eee4f7] px-4 py-2 text-[#17111c]" href={link('a')}>Open Flower A</a>
+              <a className="rounded-md border border-[#8e8198] px-4 py-2" href={link('b')}>Flower B link</a>
             </div>
-            <input className="w-full rounded-md border border-[#8e8198] bg-transparent p-2 text-sm" aria-label={observe ? 'Shareable observer link' : 'Shareable Flower B link'} readOnly value={new URL(link('b'), window.location.href).href} onFocus={(event) => event.currentTarget.select()} />
+            <input className="w-full rounded-md border border-[#8e8198] bg-transparent p-2 text-sm" aria-label="Shareable Flower B link" readOnly value={new URL(link('b'), window.location.href).href} onFocus={(event) => event.currentTarget.select()} />
           </>
         ) : <p role="status">Set up the project’s Supabase connection to create a flower pair.</p>}
       </div>
@@ -115,7 +136,7 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
   const useOwnCamera = controller || selfPreview || practicing
   const connectToRoom = !selfPreview && !practicing
   const showCamera = !observer || practicing
-  const waitingForSignal = observer ? 'Waiting for the controller…' : 'Waiting for the other flower…'
+  const waitingForSignal = observer ? 'Waiting for the controller…' : controller ? 'Waiting for the observer…' : 'Waiting for the other flower…'
   const video = useRef<HTMLVideoElement>(null)
   const localFace = useRef<TrackedFace | null>(null)
   const partner = useRef({ openness: 0, glow: 0, received: -Infinity })
@@ -132,6 +153,11 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
     let active = true
     let subscribed = false
     const connect = () => client.channel(`flower-${mode}-${room}`)
+      .on('broadcast', { event: 'observer-ready' }, () => {
+        if (!controller || !active) return
+        partner.current.received = performance.now()
+        setConnection('')
+      })
       .on('broadcast', { event: 'face' }, ({ payload }) => {
         if (controller || !active || payload?.seat !== (seat === 'a' ? 'b' : 'a') || typeof payload.present !== 'boolean') return
         const openness = Number.isFinite(payload.openness)
@@ -145,7 +171,7 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
         if (!active) return
         subscribed = status === 'SUBSCRIBED'
         if (!subscribed) partner.current.received = -Infinity
-        setConnection(subscribed ? controller ? '' : waitingForSignal : 'Reconnecting flowers…')
+        setConnection(subscribed ? waitingForSignal : 'Reconnecting flowers…')
       })
 
     // Delay the join until after React's development-only effect replay.
@@ -153,10 +179,13 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
     const join = window.setTimeout(() => { channel = connect() }, 0)
     const timer = window.setInterval(() => {
       if (!subscribed) return
-      if (!controller && performance.now() - partner.current.received > SIGNAL_TIMEOUT) {
+      if (performance.now() - partner.current.received > SIGNAL_TIMEOUT) {
         setConnection(waitingForSignal)
       }
-      if (observer) return
+      if (observer) {
+        void channel?.send({ type: 'broadcast', event: 'observer-ready', payload: {} })
+        return
+      }
       const face = document.hidden ? null : localFace.current
       void channel?.send({
         type: 'broadcast',
