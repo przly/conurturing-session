@@ -129,6 +129,9 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
   const [camera, setCamera] = useState<'off' | 'starting' | 'on'>('off')
   const [trackedFace, setTrackedFace] = useState<TrackedFace | null>(null)
   const [cameraError, setCameraError] = useState('')
+  const explanation = useRef<HTMLAudioElement>(null)
+  const [playingExplanation, setPlayingExplanation] = useState(false)
+  const [explanationError, setExplanationError] = useState(false)
   const bloom = useRef({ openness: 0, glow: 0, updated: 0 })
 
   useEffect(() => {
@@ -294,6 +297,22 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
     setJoined(false)
   }
 
+  const toggleExplanation = () => {
+    const audio = explanation.current
+    if (!audio) return
+    if (!audio.paused) {
+      audio.pause()
+      audio.currentTime = 0
+      return
+    }
+    setExplanationError(false)
+    void audio.play().catch((error: unknown) => {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        setExplanationError(true)
+      }
+    })
+  }
+
   return (
     <main className="fixed inset-0 bg-[#0d0e11] text-[#f5f1f8]" aria-label={observe ? observer ? 'Observer flower' : 'Controller flower' : `Flower ${seat.toUpperCase()}`}>
       <TwinCanvas
@@ -360,14 +379,32 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
           </aside>
         )}
       </div>
-      <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-2">
-        {!practicing && (selfPreview || connection) && (
-          <p role="status" className="rounded-md bg-black/75 px-3 py-2 text-sm">
-            {selfPreview ? 'Local camera preview' : connection}
-          </p>
-        )}
+      <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex items-end justify-between gap-2">
+        <div className="space-y-2">
+          {!practicing && (selfPreview || connection) && (
+            <p role="status" className="rounded-md bg-black/75 px-3 py-2 text-sm">
+              {selfPreview ? 'Local camera preview' : connection}
+            </p>
+          )}
+          {!selfPreview && (
+            <>
+              {explanationError && <p role="alert" className="rounded-md bg-black/75 px-3 py-2 text-sm">Couldn’t play the explanation. Try again.</p>}
+              <audio
+                ref={explanation}
+                src="/audio/intro-voiceover-synced.mp3"
+                preload="none"
+                onPlay={() => setPlayingExplanation(true)}
+                onPause={() => setPlayingExplanation(false)}
+                onEnded={() => setPlayingExplanation(false)}
+              />
+              <Button variant="outline" className="pointer-events-auto" onClick={toggleExplanation}>
+                {playingExplanation ? 'Stop explanation' : 'Play explanation'}
+              </Button>
+            </>
+          )}
+        </div>
         {!selfPreview && (!practicing || practicePose) && (
-          <Button variant="outline" className="ml-auto" onClick={practicing ? startTest : returnToPractice}>
+          <Button variant="outline" className="pointer-events-auto ml-auto" onClick={practicing ? startTest : returnToPractice}>
             {practicing ? 'Skip practice' : 'Back to practice'}
           </Button>
         )}
