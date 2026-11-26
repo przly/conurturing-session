@@ -124,6 +124,7 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
   const video = useRef<HTMLVideoElement>(null)
   const localFace = useRef<TrackedFace | null>(null)
   const partner = useRef({ openness: 0, glow: 0, received: -Infinity })
+  const leavingRoom = useRef<Promise<unknown> | null>(null)
   const [connection, setConnection] = useState(supabase ? 'Connecting flowers…' : 'Set up the Supabase connection to pair flowers.')
   const [camera, setCamera] = useState<'off' | 'starting' | 'on'>('off')
   const [trackedFace, setTrackedFace] = useState<TrackedFace | null>(null)
@@ -160,7 +161,10 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
 
     // Delay the join until after React's development-only effect replay.
     let channel: ReturnType<typeof connect> | undefined
-    const join = window.setTimeout(() => { channel = connect() }, 0)
+    const join = window.setTimeout(async () => {
+      await leavingRoom.current
+      if (active) channel = connect()
+    }, 0)
     const timer = window.setInterval(() => {
       if (!subscribed) return
       if (performance.now() - partner.current.received > SIGNAL_TIMEOUT) {
@@ -187,7 +191,7 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
       window.clearTimeout(join)
       window.clearInterval(timer)
       partner.current.received = -Infinity
-      if (channel) void client.removeChannel(channel)
+      if (channel) leavingRoom.current = client.removeChannel(channel)
     }
   }, [room, seat, mode, connectToRoom, controller, observer, waitingForSignal])
 
@@ -273,6 +277,23 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
     ? holdSeconds !== null ? `Observe the flower for ${holdSeconds}s` : practicePose?.cameraPrompt
     : onTarget ? 'Full bloom position' : centered ? 'Move closer' : 'Center your face'
 
+  const startTest = () => {
+    setHoldSeconds(null)
+    setConnection(supabase ? 'Connecting flowers…' : 'Set up the Supabase connection to pair flowers.')
+    if (observer) {
+      setCamera('off')
+      setTrackedFace(null)
+      setCameraError('')
+    }
+    setJoined(true)
+  }
+
+  const returnToPractice = () => {
+    setPracticeStep(0)
+    setHoldSeconds(null)
+    setJoined(false)
+  }
+
   return (
     <main className="fixed inset-0 bg-[#0d0e11] text-[#f5f1f8]" aria-label={observe ? observer ? 'Observer flower' : 'Controller flower' : `Flower ${seat.toUpperCase()}`}>
       <TwinCanvas
@@ -292,11 +313,6 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
             <p>{practicePose.instruction}</p>
             {camera !== 'on' && <p className="text-[#ccc5d1]">Enable your camera.</p>}
           </section>
-        )}
-        {!practicing && (selfPreview || connection) && (
-          <p role="status" className="absolute bottom-4 left-4 rounded-md bg-black/75 px-3 py-2 text-sm">
-            {selfPreview ? 'Local camera preview' : connection}
-          </p>
         )}
         {showCamera && (
           <aside className={`w-[40vw] max-w-60 overflow-hidden rounded-lg border border-white/20 bg-[#161319] shadow-lg ${practicing ? 'relative col-start-2 row-start-1' : 'absolute top-4 left-1/2 -translate-x-1/2'}`} aria-label="Your camera">
@@ -344,9 +360,21 @@ function FlowerStage({ room, seat, mode }: { room: string; seat: Seat; mode: Flo
           </aside>
         )}
       </div>
+      <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-2">
+        {!practicing && (selfPreview || connection) && (
+          <p role="status" className="rounded-md bg-black/75 px-3 py-2 text-sm">
+            {selfPreview ? 'Local camera preview' : connection}
+          </p>
+        )}
+        {!selfPreview && (!practicing || practicePose) && (
+          <Button variant="outline" className="ml-auto" onClick={practicing ? startTest : returnToPractice}>
+            {practicing ? 'Skip practice' : 'Back to practice'}
+          </Button>
+        )}
+      </div>
       {practicing && !practicePose && (
         <div className="absolute inset-0 grid place-items-center bg-black/65">
-          <Button size="lg" className="scale-200" onClick={() => setJoined(true)}>
+          <Button size="lg" className="scale-200" onClick={startTest}>
             Start the test
           </Button>
         </div>

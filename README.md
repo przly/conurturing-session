@@ -252,7 +252,9 @@ You can also try both seats on `localhost` on a single computer.
 2. Select **Flower A** on one computer and **Flower B** on the other.
 3. Enable the camera on both screens. Each time you open or reload a link, follow the
    practice prompts and hold each position for five seconds, then select
-   **Start the test**. Move left or right to change how far the
+   **Start the test**, or select **Skip practice** to go straight to the
+   live test. Select **Back to practice** to restart the movements on your
+   computer. Move left or right to change how far the
    other screen's flower opens, and move closer or farther to change its glow.
 
 MediaPipe runs in each browser. Supabase relays the seat, a face-present
@@ -266,6 +268,8 @@ Open `/observe` on both computers using the same deployment URL. On one,
 select **Control the flower**. On the other, select **Watch the flower**.
 The shared page supports one observation pair at a time per deployment.
 Both participants enable their cameras and complete the four practice
-movements with their own flower. Each selects **Start the test** when ready.
+movements with their own flower. Each selects **Start the test** when ready
+or **Skip practice** to enter the live test immediately. Select
+**Back to practice** to restart the movements on your computer.
 The observer's camera stops when they enter the live test, and the controller's
 movements drive both flowers.
