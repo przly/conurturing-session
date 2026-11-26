@@ -247,8 +247,9 @@ Open `/?test=flowers` on an HTTPS deployment of this app with
 `.env.example`. The pair uses Supabase Realtime public Broadcast channels.
 You can also try both seats on `localhost` on a single computer.
 
-1. Copy the Flower B link and open it on the second computer.
-2. Open Flower A on the first computer.
+1. Open `/?test=flowers` on both computers using the same deployment URL.
+   The shared page supports one Twin Flowers pair at a time per deployment.
+2. Select **Flower A** on one computer and **Flower B** on the other.
 3. Enable the camera on both screens. Each time you open or reload a link, follow the
    practice prompts and hold each position for five seconds, then select
    **Start the test**. Move left or right to change how far the

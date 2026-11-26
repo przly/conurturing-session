@@ -74,50 +74,34 @@ export default function FlowerPair({ mode = 'pair' }: { mode?: FlowerMode }) {
     if (room && /^[a-zA-Z0-9_-]{8,80}$/.test(room)) {
       return <FlowerStage room={room} seat={seat} mode={mode} />
     }
-    if (mode === 'observe' && room === null) {
+    if (room === null) {
       return <FlowerStage room={`default:${window.location.host}`} seat={seat} mode={mode} />
     }
   }
-  return mode === 'observe' ? <ObserveSetup /> : <PairSetup />
+  return <FlowerSetup mode={mode} />
 }
 
-function ObserveSetup() {
-  return (
-    <main className="grid min-h-dvh place-items-center bg-[#0d0e11] p-6 text-[#f5f1f8]">
-      <div className="w-full max-w-sm space-y-5">
-        <h1 className="text-3xl font-medium">Observe test</h1>
-        {supabase ? (
-          <>
-            <p className="text-[#ccc5d1]">Open this page on both computers. Choose a different role on each.</p>
-            <div className="flex flex-wrap gap-3">
-              <a className="rounded-md bg-[#eee4f7] px-4 py-2 text-[#17111c]" href="?seat=a">Control the flower</a>
-              <a className="rounded-md border border-[#8e8198] px-4 py-2" href="?seat=b">Watch the flower</a>
-            </div>
-          </>
-        ) : <p role="status">Set up the project’s Supabase connection to run the observe test.</p>}
-      </div>
-    </main>
-  )
-}
-
-function PairSetup() {
-  const [room] = useState(() => Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, '0')).join(''))
-  const link = (seat: Seat) => `?test=flowers&room=${room}&seat=${seat}`
+function FlowerSetup({ mode }: { mode: FlowerMode }) {
+  const observe = mode === 'observe'
+  const link = (seat: Seat) => observe ? `?seat=${seat}` : `?test=flowers&seat=${seat}`
 
   return (
     <main className="grid min-h-dvh place-items-center bg-[#0d0e11] p-6 text-[#f5f1f8]">
       <div className="w-full max-w-sm space-y-5">
-        <h1 className="text-3xl font-medium">Twin flowers</h1>
+        <h1 className="text-3xl font-medium">{observe ? 'Observe test' : 'Twin flowers'}</h1>
         {supabase ? (
           <>
-            <p className="text-[#ccc5d1]">Open Flower A here and share the Flower B link with your partner.</p>
+            <p className="text-[#ccc5d1]">
+              {observe
+                ? 'Open this page on both computers. Choose a different role on each.'
+                : 'Open this page on both computers. Choose Flower A on one and Flower B on the other.'}
+            </p>
             <div className="flex flex-wrap gap-3">
-              <a className="rounded-md bg-[#eee4f7] px-4 py-2 text-[#17111c]" href={link('a')}>Open Flower A</a>
-              <a className="rounded-md border border-[#8e8198] px-4 py-2" href={link('b')}>Flower B link</a>
+              <a className="rounded-md bg-[#eee4f7] px-4 py-2 text-[#17111c]" href={link('a')}>{observe ? 'Control the flower' : 'Flower A'}</a>
+              <a className="rounded-md border border-[#8e8198] px-4 py-2" href={link('b')}>{observe ? 'Watch the flower' : 'Flower B'}</a>
             </div>
-            <input className="w-full rounded-md border border-[#8e8198] bg-transparent p-2 text-sm" aria-label="Shareable Flower B link" readOnly value={new URL(link('b'), window.location.href).href} onFocus={(event) => event.currentTarget.select()} />
           </>
-        ) : <p role="status">Set up the project’s Supabase connection to create a flower pair.</p>}
+        ) : <p role="status">Set up the project’s Supabase connection to run this test.</p>}
       </div>
     </main>
   )
